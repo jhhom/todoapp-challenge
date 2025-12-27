@@ -1,0 +1,48 @@
+{
+  "name": "example-1-orpc-fullstack",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:be": "tsx --tsconfig tsconfig.app.json src/backend/main.ts",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@orpc/client": "^1.12.3",
+    "@orpc/contract": "^1.12.3",
+    "@orpc/server": "^1.12.3",
+    "@orpc/tanstack-query": "^1.12.3",
+    "@tailwindcss/vite": "^4.1.18",
+    "@tanstack/react-devtools": "^0.8.4",
+    "@tanstack/react-query": "^5.90.12",
+    "@tanstack/react-query-devtools": "^5.91.1",
+    "@tanstack/react-router": "^1.141.2",
+    "@tanstack/react-router-devtools": "^1.141.2",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "node": "link:@orpc/server/node",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tailwindcss": "^4.1.18",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vite": "^7.2.4"
+  }
+}
