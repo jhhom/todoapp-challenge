@@ -130,14 +130,35 @@ For example: *"Regarding Q5 (Circular Dependencies): To prevent deadlocks, I imp
 
 # Assumptions made
 
-## 1. When a recurring TODO is marked as completed, the next occurence is created based on its CREATE_DATE
+## 1. When a recurring TODO is marked as completed, the next occurence is created based on its CREATED_AT
 
 It does not make sense that every TODO needs to have a due date.
 
-Therefore, we will add another field CREATE_DATE instead.
+Therefore, we will add another field CREATED_AT instead.
 
-And the next todo should be created based on the CREATE_DATE.
+And the next todo should be created based on the CREATED_AT.
 
-If a task recurs WEEKLY has a CREATE_DATE of 08 Aug, and it's completed on 10 Aug. 
+If a task recurs WEEKLY has a CREATED_AT of 08 Aug, and it's completed on 10 Aug. 
 
 It's next task will be created with 08 Aug + 7 days, which is 15 Aug.
+
+
+# Authentication and Shared State
+
+Building an authentication system where all users share a single, global list is a highly effective strategy for this assignment.
+
+### Why This Approach Makes Perfect Sense
+
+* **It hits the core requirements simultaneously:** The assignment explicitly lists "User authentication and registration" as an optional nice-to-have feature. It also mandates as a non-functional requirement that the API must support multiple users accessing the same TODO list concurrently. Your approach tackles both elegantly.
+* **It avoids the permission rabbit hole:** Building a robust sharing system with access control lists (ACL), invitations, and view/edit permissions is incredibly time-consuming. Skipping the sharing system keeps the scope manageable while still demonstrating your ability to handle user sessions and security.
+* **It mirrors real-world collaborative tools:** If you frame the application as a "Team Board" or "Workspace" (similar to a Jira backlog, a team Kanban board, or a shared family grocery list) rather than a "Personal Diary," a globally visible list becomes a standard product feature rather than a privacy flaw.
+
+### How to Document This in Your Decision Log
+
+You can frame this compromise clearly to show the evaluators that you understand product scoping and trade-offs.
+
+> **Authentication and Shared State**
+> * **Decision:** I implemented user authentication, but opted for a "Shared Team Workspace" model where all authenticated users view and interact with a single, global TODO list. I chose not to implement isolated private lists or a task-sharing system.
+> * **Reasoning:** The requirements asked to support multiple concurrent users on the same list, while listing authentication as a nice-to-have. By building a unified workspace, I was able to demonstrate secure authentication practices while natively satisfying the concurrent access requirement. This avoided the massive overhead of Role-Based Access Control (RBAC) or complex user-to-task mapping tables.
+> * **Trade-off:** Users lack privacy for their individual tasks. However, prioritizing a robust shared-state backend over complex permissions allowed me to focus on the core challenges of dependency validation and recurring tasks within the time constraints.
+> 
