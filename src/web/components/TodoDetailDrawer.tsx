@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { orpc } from "../client";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import {
   useAddDependency,
   useDeleteTodo,
@@ -91,21 +92,23 @@ export function TodoDetailDrawer({
           <code className="block flex-1 truncate rounded border bg-muted px-2 py-1 text-xs">
             {t.id}
           </code>
-          <button
-            className="relative rounded border px-2 py-1 text-xs"
-            onClick={() => {
-              void navigator.clipboard?.writeText(t.id);
-              setCopied(true);
-              window.setTimeout(() => setCopied(false), 1200);
-            }}
-          >
-            copy
-            {copied && (
-              <span className="pointer-events-none absolute -top-7 right-0 rounded bg-foreground px-2 py-0.5 text-[10px] text-background shadow">
-                Copied!
-              </span>
-            )}
-          </button>
+          <Tooltip open={copied}>
+            <TooltipTrigger
+              render={
+                <button
+                  className="rounded border px-2 py-1 text-xs"
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(t.id);
+                    setCopied(true);
+                    window.setTimeout(() => setCopied(false), 1200);
+                  }}
+                >
+                  copy
+                </button>
+              }
+            />
+            <TooltipContent side="top">Copied!</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
