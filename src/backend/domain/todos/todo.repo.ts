@@ -9,7 +9,7 @@ type ListInput = {
   dueBefore?: string;
   dueAfter?: string;
   blocked?: "blocked" | "unblocked";
-  sortBy?: "dueDate" | "priority" | "status" | "name";
+  sortBy?: "createdAt" | "dueDate" | "priority" | "status" | "name";
   sortOrder: "asc" | "desc";
 };
 
@@ -55,13 +55,15 @@ export function createTodoRepo(db: Kysely<DB>) {
       const total = Number(totalRow.count);
 
       const sortCol =
-        input.sortBy === "dueDate"
-          ? "dueDate"
-          : input.sortBy === "priority"
-            ? "priority"
-            : input.sortBy === "status"
-              ? "status"
-              : "name";
+        input.sortBy === "createdAt"
+          ? "createdAt"
+          : input.sortBy === "dueDate"
+            ? "dueDate"
+            : input.sortBy === "priority"
+              ? "priority"
+              : input.sortBy === "status"
+                ? "status"
+                : "name";
       q = q
         .orderBy(sortCol, input.sortOrder)
         .limit(input.pageSize)

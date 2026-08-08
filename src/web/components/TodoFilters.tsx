@@ -30,7 +30,7 @@ const BLOCKED_OPTIONS: SelectOption[] = [
 ];
 
 const SORT_BY_OPTIONS: SelectOption[] = [
-  { value: "", label: "Sort by…" },
+  { value: "createdAt", label: "Created date" },
   { value: "dueDate", label: "Due date" },
   { value: "priority", label: "Priority" },
   { value: "status", label: "Status" },

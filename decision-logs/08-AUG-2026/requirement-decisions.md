@@ -102,3 +102,11 @@ This can be something we can consider in **"What we would do differently with mo
 > **The Flaw:** I identified an edge case where this logic fails: frequency mismatches. If a Daily task depends on a Yearly task (e.g., Task: "Drive Forklift" [Daily] depends on "Renew License" [Yearly]), completing the Daily task will currently link tomorrow's task to next year's license renewal, incorrectly blocking the user for a year.
 > 
 > **What I would do with more time:** To solve this, I would implement a schedule-comparison utility. Before linking a new task to a future dependency, the backend would compare their recurrence intervals (`schedule` and `custom_interval_days`). If the dependent task occurs at a higher frequency than the prerequisite task, the system would intentionally bypass the `next_occurrence_id` and link back to the most recently completed instance of the dependency to ensure the user remains unblocked for the current cycle.
+
+
+# 3. Allowing Due Dates in the Past
+**Decision**: The system allows users to set a due_date in the past when creating or updating a TODO item.
+
+**Reasoning**: The requirements do not specify restrictions on the timeframe of the due date. In real-world scenarios, users often use TODO lists retroactively for tracking, auditing, or logging tasks they forgot to enter beforehand. Enforcing a strict "future-only" rule would artificially restrict this valid user behavior.
+
+**Trade-off**: The frontend UI might need extra logic to highlight past due dates in red (as "Overdue") immediately upon creation. However, prioritizing user flexibility and avoiding complex timezone validation on the backend is a worthwhile trade-off.

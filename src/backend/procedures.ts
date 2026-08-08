@@ -12,11 +12,16 @@ import { requireAuth } from "./middleware/auth";
 
 export const os = implement(apiContract).$context<ServerContext>();
 
-const authService = createAuthService(createUserRepo(database));
+const userRepo = createUserRepo(database);
+const authService = createAuthService(userRepo);
 const dependencyRepo = createDependencyRepo(database);
 const dependencyService = createDependencyService(dependencyRepo);
 const todoRepo = createTodoRepo(database);
-const todoService = createTodoService({ todoRepo, dependencyService });
+const todoService = createTodoService({
+  todoRepo,
+  dependencyService,
+  userRepo,
+});
 
 export const router = os.router({
   auth: {

@@ -4,6 +4,7 @@ import { createTodoRepo } from "./todo.repo";
 import { createTodoService } from "./todo.service";
 import { createDependencyService } from "../dependencies/dependency.service";
 import { createDependencyRepo } from "../dependencies/dependency.repo";
+import { createUserRepo } from "../auth/auth.repo";
 
 async function seedUser() {
   return database
@@ -20,7 +21,8 @@ function makeService() {
   const todoRepo = createTodoRepo(database);
   const dependencyRepo = createDependencyRepo(database);
   const dependencyService = createDependencyService(dependencyRepo);
-  return createTodoService({ todoRepo, dependencyService });
+  const userRepo = createUserRepo(database);
+  return createTodoService({ todoRepo, dependencyService, userRepo });
 }
 
 describe("todoService", () => {

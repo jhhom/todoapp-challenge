@@ -4,13 +4,18 @@ import {
   useSearch,
 } from "@tanstack/react-router";
 import { format } from "date-fns";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useTodoList } from "../hooks/todos";
 import { TodoFilters, type FilterState } from "../components/TodoFilters";
 import { Pagination } from "../components/Pagination";
 import { TodoForm } from "../components/TodoForm";
 import { TodoDetailDrawer } from "../components/TodoDetailDrawer";
-import { clearToken } from "../lib/auth";
+import {
+  StatusBadge,
+  PriorityBadge,
+  BlockedBadge,
+} from "../components/TodoBadges";
+import { clearToken, getUserEmail } from "../lib/auth";
 
 export const Route = createFileRoute("/")({
   component: Workspace,
@@ -19,8 +24,11 @@ export const Route = createFileRoute("/")({
     status: (search.status as string) || undefined,
     priority: (search.priority as string) || undefined,
     blocked: (search.blocked as string) || undefined,
-    sortBy: (search.sortBy as string) || undefined,
-    sortOrder: (search.sortOrder as "asc" | "desc") || "asc",
+    sortBy: (search.sortBy as string) || "createdAt",
+    sortOrder: (search.sortOrder as "asc" | "desc") || "desc",
+    // Which task's detail drawer is open — kept in the URL so it survives
+    // refreshes and is shareable / back-button friendly.
+    todo: (search.todo as string) || undefined,
   }),
 });
 
@@ -32,30 +40,60 @@ export default function Workspace() {
     blocked?: string;
     sortBy?: string;
     sortOrder: "asc" | "desc";
+    todo?: string;
   };
   const navigate = useNavigate();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The currently-open task is read from the ?todo= URL param.
+  const selectedId = search.todo ?? null;
 
-  const input = useMemo(() => ({ pageSize: 50, ...search }), [search]);
+  // Only include actual filter/pagination fields in the query input.
+  // Excluding `todo` (the open-drawer ID) prevents a refetch + abort
+  // every time the detail drawer opens or closes.
+  const input = useMemo(
+    () => ({
+      pageSize: 50,
+      page: search.page,
+      status: search.status,
+      priority: search.priority,
+      blocked: search.blocked,
+      sortBy: search.sortBy,
+      sortOrder: search.sortOrder,
+    }),
+    [
+      search.page,
+      search.status,
+      search.priority,
+      search.blocked,
+      search.sortBy,
+      search.sortOrder,
+    ],
+  );
 
   const { data, isLoading, error } = useTodoList(input);
 
   const setParam = (next: Record<string, unknown>) =>
     navigate({ to: "/", search: { ...search, ...next } });
 
+  const userEmail = getUserEmail();
+
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-4">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">TODO Workspace</h1>
-        <button
-          className="rounded border px-3 py-1 text-sm"
-          onClick={() => {
-            clearToken();
-            navigate({ to: "/login" });
-          }}
-        >
-          Log out
-        </button>
+        <div className="flex items-center gap-3">
+          {userEmail && (
+            <span className="text-sm text-muted-foreground">{userEmail}</span>
+          )}
+          <button
+            className="rounded border px-3 py-1 text-sm"
+            onClick={() => {
+              clearToken();
+              navigate({ to: "/login" });
+            }}
+          >
+            Log out
+          </button>
+        </div>
       </header>
 
       <TodoFilters
@@ -64,7 +102,7 @@ export default function Workspace() {
           priority: search.priority,
           blocked: search.blocked,
           sortBy: search.sortBy,
-          sortOrder: search.sortOrder ?? "asc",
+          sortOrder: search.sortOrder ?? "desc",
         }}
         onChange={(f: FilterState) => setParam({ ...f, page: 1 })}
       />
@@ -87,6 +125,7 @@ export default function Workspace() {
             <th className="p-2">Due</th>
             <th className="p-2">Recurs</th>
             <th className="p-2">Blocked</th>
+            <th className="p-2">Created By</th>
             <th className="p-2">Created At</th>
           </tr>
         </thead>
@@ -94,19 +133,33 @@ export default function Workspace() {
           {data?.items.map((t) => (
             <tr
               key={t.id}
-              className="cursor-pointer border-b hover:bg-muted/50"
-              onClick={() => setSelectedId(t.id)}
+              className={
+                "cursor-pointer border-b hover:bg-muted/50 " +
+                (t.id === selectedId
+                  ? "bg-primary/2 ring-1 ring-inset ring-primary/40"
+                  : "")
+              }
+              onClick={() => setParam({ todo: t.id })}
             >
               <td className="p-2">{t.name}</td>
-              <td className="p-2">{t.status}</td>
-              <td className="p-2">{t.priority}</td>
+              <td className="p-2">
+                <StatusBadge status={t.status} />
+              </td>
+              <td className="p-2">
+                <PriorityBadge priority={t.priority} />
+              </td>
               <td className="p-2">
                 {t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "—"}
               </td>
               <td className="p-2">{t.schedule}</td>
-              <td className="p-2">{t.isBlocked ? "yes" : "no"}</td>
+              <td className="p-2">
+                <BlockedBadge isBlocked={t.isBlocked} />
+              </td>
               <td className="p-2 whitespace-nowrap">
-                {format(new Date(t.createdAt), "yyyy-MM-dd HH:mm:ss")}
+                {t.createdByEmail ?? "—"}
+              </td>
+              <td className="p-2 whitespace-nowrap">
+                {format(new Date(t.createdAt), "yy MMM dd HH:mm")}
               </td>
             </tr>
           ))}
@@ -119,9 +172,16 @@ export default function Workspace() {
         onChange={(page) => setParam({ page })}
       />
 
+      {/*
+        key forces a fresh remount whenever the selected todo changes so that
+        transient UI state (e.g. the Add-dependency picker selection) does not
+        leak from a previously-viewed todo into the newly-opened one.
+      */}
       <TodoDetailDrawer
+        key={selectedId ?? "closed"}
         todoId={selectedId}
-        onClose={() => setSelectedId(null)}
+        onClose={() => setParam({ todo: undefined })}
+        onOpenTodo={(id) => setParam({ todo: id })}
       />
     </div>
   );

@@ -19,8 +19,12 @@ export default defineConfig({
     tailwindcss(),
   ],
   test: {
-    // Integration tests share one PostgreSQL database; run files serially to
-    // avoid concurrent test data clobbering each other.
+    // Integration tests use a SEPARATE database (sleekflow_test) so they never
+    // wipe dev data. Run files serially to avoid concurrent test data
+    // clobbering each other.
     fileParallelism: false,
+    env: {
+      DATABASE_URL: "postgres://joohom@localhost:5432/sleekflow_test",
+    },
   },
 });

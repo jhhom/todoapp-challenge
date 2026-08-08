@@ -4,6 +4,7 @@ import { computeNextDueDate } from "../../lib/recurrence";
 import { badRequest, notFound } from "../../lib/errors";
 import type { TodoRepo, TodoRow } from "./todo.repo";
 import type { DependencyService } from "../dependencies/dependency.service";
+import type { UserRepo } from "../auth/auth.repo";
 
 type CreateInput = {
   name: string;
@@ -24,10 +25,12 @@ function toIso(d: Date | null | undefined): string | null {
 export function createTodoService(deps: {
   todoRepo: TodoRepo;
   dependencyService: DependencyService;
+  userRepo: UserRepo;
 }) {
-  const { todoRepo, dependencyService } = deps;
+  const { todoRepo, dependencyService, userRepo } = deps;
 
   async function toDto(todo: TodoRow) {
+    const creator = await userRepo.findById(String(todo.createdBy));
     return {
       id: String(todo.id),
       name: todo.name,
@@ -46,6 +49,7 @@ export function createTodoService(deps: {
         ? String(todo.nextOccurrenceId)
         : null,
       createdBy: String(todo.createdBy),
+      createdByEmail: creator?.email ?? null,
       createdAt: todo.createdAt.toISOString(),
       completedAt: toIso(todo.completedAt),
       updatedAt: todo.updatedAt.toISOString(),
@@ -65,7 +69,7 @@ export function createTodoService(deps: {
       dueBefore?: string;
       dueAfter?: string;
       blocked?: "blocked" | "unblocked";
-      sortBy?: "dueDate" | "priority" | "status" | "name";
+      sortBy?: "createdAt" | "dueDate" | "priority" | "status" | "name";
       sortOrder: "asc" | "desc";
     }) {
       const { items, total } = await todoRepo.list(input);

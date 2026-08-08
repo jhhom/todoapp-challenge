@@ -27,6 +27,7 @@ export const TodoSchema = z.object({
   customIntervalDays: z.number().int().positive().nullable(),
   nextOccurrenceId: z.string().uuid().nullable(),
   createdBy: z.string().uuid(),
+  createdByEmail: z.string().email().nullable(),
   createdAt: z.string().datetime(),
   completedAt: z.string().datetime().nullable(),
   updatedAt: z.string().datetime(),
@@ -54,8 +55,10 @@ const ListInput = z.object({
   dueBefore: z.string().datetime().optional(),
   dueAfter: z.string().datetime().optional(),
   blocked: z.enum(["blocked", "unblocked"]).optional(),
-  sortBy: z.enum(["dueDate", "priority", "status", "name"]).optional(),
-  sortOrder: z.enum(["asc", "desc"]).default("asc"),
+  sortBy: z
+    .enum(["createdAt", "dueDate", "priority", "status", "name"])
+    .optional(),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 
 const CreateInput = z.object({

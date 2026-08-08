@@ -20,9 +20,17 @@ function useInvalidateTodos() {
 }
 
 export function useCreateTodo() {
-  const invalidate = useInvalidateTodos();
+  const qc = useQueryClient();
   return useMutation(
-    orpc.todo.create.mutationOptions({ onSuccess: invalidate }),
+    orpc.todo.create.mutationOptions({
+      onSuccess: async () => {
+        // Only invalidate the LIST — creating a todo doesn't change any
+        // existing todo's detail data. Avoids refetching todo.get for the
+        // currently-open drawer, which could 404 if that todo no longer
+        // exists (e.g., stale ?todo= URL param after a DB reset).
+        await qc.invalidateQueries({ queryKey: orpc.todo.list.key() });
+      },
+    }),
   );
 }
 
@@ -34,9 +42,19 @@ export function useUpdateTodo() {
 }
 
 export function useDeleteTodo() {
-  const invalidate = useInvalidateTodos();
+  const qc = useQueryClient();
   return useMutation(
-    orpc.todo.delete.mutationOptions({ onSuccess: invalidate }),
+    orpc.todo.delete.mutationOptions({
+      onSuccess: async () => {
+        // Only invalidate the LIST — do NOT invalidate todo.get or the entire
+        // todo.* tree. The detail drawer is still mounted at this point with an
+        // active todo.get observer. If we invalidate todo.get, React Query will
+        // refetch it for the just-deleted todo and get a 404.
+        // The component-level onSuccess (onClose) will unmount the drawer right
+        // after, which naturally deactivates the todo.get query.
+        await qc.invalidateQueries({ queryKey: orpc.todo.list.key() });
+      },
+    }),
   );
 }
 

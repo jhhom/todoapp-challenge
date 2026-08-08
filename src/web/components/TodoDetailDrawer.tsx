@@ -14,6 +14,14 @@ import {
   CommandItem,
   CommandList,
 } from "./ui/command";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import {
@@ -22,6 +30,7 @@ import {
   useRemoveDependency,
   useUpdateTodo,
 } from "../hooks/todos";
+import { Link } from "@tanstack/react-router";
 
 export function TodoDetailDrawer({
   todoId,
@@ -29,6 +38,8 @@ export function TodoDetailDrawer({
 }: {
   todoId: string | null;
   onClose: () => void;
+  /** Open a different task in the drawer (e.g. clicking a dependency title). */
+  onOpenTodo?: (id: string) => void;
 }) {
   const update = useUpdateTodo();
   const remove = useDeleteTodo();
@@ -38,10 +49,12 @@ export function TodoDetailDrawer({
   const [depOpen, setDepOpen] = useState(false);
   const [statusErr, setStatusErr] = useState("");
   const [copied, setCopied] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const detail = useQuery(
-    orpc.todo.get.queryOptions({ input: { id: todoId! } }),
-  );
+  const detail = useQuery({
+    ...orpc.todo.get.queryOptions({ input: { id: todoId ?? "" } }),
+    enabled: !!todoId,
+  });
 
   // Candidate tasks to pick as a dependency (fetched via the TanStack Query client).
   const candidates = useQuery(
@@ -93,12 +106,17 @@ export function TodoDetailDrawer({
   const picked = pickedId ? byId.get(pickedId) : undefined;
 
   return (
-    <div className="fixed right-0 top-0 h-full w-[26rem] space-y-3 overflow-auto border-l bg-background p-4">
+    <div className="fixed shadow-md right-0 top-0 h-full w-[32rem] space-y-3 overflow-auto border-l bg-background p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">{t.name}</h2>
         <button onClick={onClose}>✕</button>
       </div>
       <p className="text-sm text-muted-foreground">{t.description}</p>
+      {t.createdAt && (
+        <p className="text-sm text-muted-foreground">
+          Created {format(new Date(t.createdAt), "MMM dd, yyyy HH:mm")}
+        </p>
+      )}
 
       {/* Task ID — shown so it is discoverable (e.g. for linking). */}
       <div className="space-y-1">
@@ -164,21 +182,31 @@ export function TodoDetailDrawer({
             return (
               <li
                 key={depId}
-                className="flex items-center justify-between gap-2 rounded border p-2 text-sm"
+                className="flex items-start justify-between gap-2 rounded border p-2 text-sm"
               >
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="truncate">{labelFor(depId)}</span>
+                <div className="min-w-0 flex-1">
+                  {/* Title is a link: clicking opens this dependency in the drawer. */}
+                  <Link
+                    to="/"
+                    search={(prev) => ({
+                      ...prev,
+                      todo: depId,
+                    })}
+                    className="block w-full break-words text-left font-medium text-primary underline-offset-2 hover:underline"
+                  >
+                    {labelFor(depId)}
+                  </Link>
                   {dep?.createdAt && (
                     <Badge
                       variant="secondary"
-                      className="shrink-0 font-normal tabular-nums"
+                      className="mt-1 shrink-0 font-normal tabular-nums"
                     >
-                      {format(new Date(dep.createdAt), "yyyy-MM-dd HH:mm:ss")}
+                      {format(new Date(dep.createdAt), "MMM dd HH:mm")}
                     </Badge>
                   )}
                 </div>
                 <button
-                  className="text-destructive"
+                  className="shrink-0 text-destructive"
                   onClick={() =>
                     removeDep.mutate({ taskId: t.id, dependsOnId: depId })
                   }
@@ -200,7 +228,7 @@ export function TodoDetailDrawer({
               render={
                 <Button
                   variant="outline"
-                  className="h-auto min-h-8 flex-1 justify-between py-1.5 text-left font-normal"
+                  className="flex h-auto min-h-8 min-w-0 flex-1 items-start justify-between whitespace-normal py-1.5 text-left font-normal"
                 />
               }
             >
@@ -270,14 +298,39 @@ export function TodoDetailDrawer({
         )}
       </div>
 
-      <button
-        className="w-full rounded border border-destructive p-2 text-sm text-destructive"
-        onClick={() => {
-          remove.mutate({ id: t.id }, { onSuccess: onClose });
-        }}
+      <Button
+        variant="destructive"
+        className="w-full"
+        onClick={() => setDeleteOpen(true)}
       >
         Delete (soft)
-      </button>
+      </Button>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete task?</DialogTitle>
+            <DialogDescription>
+              This will soft-delete "{t.name}". The task will be hidden from the
+              active list but can be restored later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={remove.isPending}
+              onClick={() => {
+                remove.mutate({ id: t.id }, { onSuccess: onClose });
+              }}
+            >
+              {remove.isPending ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
