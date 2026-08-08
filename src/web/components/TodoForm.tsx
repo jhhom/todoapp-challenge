@@ -1,9 +1,25 @@
 import { useState } from "react";
 import { useCreateTodo } from "../hooks/todos";
+import { AppSelect, type SelectOption } from "./AppSelect";
 
-const STATUSES = ["not_started", "in_progress", "completed", "archived"];
-const PRIORITIES = ["low", "medium", "high"];
-const SCHEDULES = ["none", "daily", "weekly", "monthly", "custom"];
+const STATUSES: SelectOption[] = [
+  { value: "not_started", label: "not_started" },
+  { value: "in_progress", label: "in_progress" },
+  { value: "completed", label: "completed" },
+  { value: "archived", label: "archived" },
+];
+const PRIORITIES: SelectOption[] = [
+  { value: "low", label: "low" },
+  { value: "medium", label: "medium" },
+  { value: "high", label: "high" },
+];
+const SCHEDULES: SelectOption[] = [
+  { value: "none", label: "none" },
+  { value: "daily", label: "daily" },
+  { value: "weekly", label: "weekly" },
+  { value: "monthly", label: "monthly" },
+  { value: "custom", label: "custom" },
+];
 
 const emptyForm = {
   name: "",
@@ -78,39 +94,24 @@ export function TodoForm() {
             value={form.dueDate}
             onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
           />
-          <select
-            className="rounded border p-2"
+          <AppSelect
             value={form.status}
-            onChange={(e) => setForm({ ...form, status: e.target.value })}
-          >
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <select
-            className="rounded border p-2"
+            onChange={(v) => setForm({ ...form, status: v })}
+            options={STATUSES}
+            triggerClassName="w-full"
+          />
+          <AppSelect
             value={form.priority}
-            onChange={(e) => setForm({ ...form, priority: e.target.value })}
-          >
-            {PRIORITIES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <select
-            className="rounded border p-2"
+            onChange={(v) => setForm({ ...form, priority: v })}
+            options={PRIORITIES}
+            triggerClassName="w-full"
+          />
+          <AppSelect
             value={form.schedule}
-            onChange={(e) => setForm({ ...form, schedule: e.target.value })}
-          >
-            {SCHEDULES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setForm({ ...form, schedule: v })}
+            options={SCHEDULES}
+            triggerClassName="w-full"
+          />
           {form.schedule === "custom" && (
             <input
               className="rounded border p-2"

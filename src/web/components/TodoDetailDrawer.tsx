@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { orpc } from "../client";
+import { AppSelect } from "./AppSelect";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import {
   useAddDependency,
@@ -116,17 +117,14 @@ export function TodoDetailDrawer({
         <label className="text-xs uppercase text-muted-foreground">
           Status
         </label>
-        <select
-          className="w-full rounded border p-2"
+        <AppSelect
           value={t.status}
-          onChange={(e) => changeStatus(e.target.value)}
-        >
-          {["not_started", "in_progress", "completed", "archived"].map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => changeStatus(v)}
+          options={["not_started", "in_progress", "completed", "archived"].map(
+            (s) => ({ value: s, label: s }),
+          )}
+          triggerClassName="w-full"
+        />
         {statusErr && <p className="text-xs text-destructive">{statusErr}</p>}
         {t.isBlocked && (
           <p className="text-xs text-amber-600">
@@ -168,18 +166,18 @@ export function TodoDetailDrawer({
 
         {/* Pick a dependency by name instead of typing a UUID. */}
         <div className="flex gap-2">
-          <select
-            className="flex-1 rounded border p-2 text-sm"
+          <AppSelect
             value={pickedId}
-            onChange={(e) => setPickedId(e.target.value)}
-          >
-            <option value="">Select a task…</option>
-            {pickable.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.status})
-              </option>
-            ))}
-          </select>
+            onChange={setPickedId}
+            options={[
+              { value: "", label: "Select a task…" },
+              ...pickable.map((c) => ({
+                value: c.id,
+                label: `${c.name} (${c.status})`,
+              })),
+            ]}
+            triggerClassName="flex-1"
+          />
           <button
             className="rounded border px-3 py-1 text-sm disabled:opacity-40"
             disabled={!pickedId}

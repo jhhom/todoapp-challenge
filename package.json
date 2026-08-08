@@ -29,6 +29,7 @@
     "express": "^5.2.1",
     "jose": "^6.2.8",
     "kysely": "^0.28.8",
+    "lucide-react": "^1.30.0",
     "node": "link:@orpc/server/node",
     "pg": "^8.16.3",
     "react": "^19.2.0",
