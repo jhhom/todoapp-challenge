@@ -9,11 +9,45 @@ export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
   : ColumnType<T, T | undefined, T>;
 
+export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+
+export type TodoPriority = "high" | "low" | "medium";
+
+export type TodoSchedule = "custom" | "daily" | "monthly" | "none" | "weekly";
+
+export type TodoStatus = "archived" | "completed" | "in_progress" | "not_started";
+
 export interface AppUser {
-  id: Generated<number>;
-  username: string;
+  createdAt: Generated<Timestamp>;
+  email: string;
+  id: Generated<string>;
+  passwordHash: string;
+}
+
+export interface Todo {
+  completedAt: Timestamp | null;
+  createdAt: Generated<Timestamp>;
+  createdBy: string;
+  customIntervalDays: number | null;
+  description: string | null;
+  dueDate: Timestamp | null;
+  id: Generated<string>;
+  isDeleted: Generated<boolean>;
+  name: string;
+  nextOccurrenceId: string | null;
+  priority: Generated<TodoPriority>;
+  schedule: Generated<TodoSchedule>;
+  status: Generated<TodoStatus>;
+  updatedAt: Generated<Timestamp>;
+}
+
+export interface TodoDependency {
+  dependsOnTaskId: string;
+  taskId: string;
 }
 
 export interface DB {
   appUser: AppUser;
+  todo: Todo;
+  todoDependency: TodoDependency;
 }
