@@ -99,6 +99,31 @@ describe("todoService", () => {
     expect(next.dueDate).toBe("2099-01-11T00:00:00.000Z");
   });
 
+  it("catches up an overdue recurring task to the next future slot (Q6)", async () => {
+    const user = await seedUser();
+    const svc = makeService();
+    const created = await svc.create({
+      name: "Overdue daily",
+      createdBy: String(user.id),
+      schedule: "daily",
+      priority: "medium",
+      dueDate: "2000-01-01T00:00:00Z", // far in the past -> triggers catch-up
+    });
+    const completed = await svc.update(created.id, { status: "completed" });
+    const next = await svc.get(completed.nextOccurrenceId!);
+
+    const nextDue = new Date(next.dueDate!);
+    const completedAt = new Date(completed.completedAt!);
+    const anchor = new Date(created.dueDate as string);
+    const dayMs = 24 * 60 * 60 * 1000;
+
+    // Catch-up: the next due date is strictly in the future…
+    expect(nextDue.getTime()).toBeGreaterThan(completedAt.getTime());
+    // …and it stays on the original daily grid (whole days from the anchor),
+    // which is the defining property of due-date-anchored recurrence.
+    expect((nextDue.getTime() - anchor.getTime()) % dayMs).toBe(0);
+  });
+
   it("does not spawn a duplicate when re-completing after reversal", async () => {
     const user = await seedUser();
     const svc = makeService();
