@@ -1,0 +1,86 @@
+# Gate pull requests targeting `main`: runs the full vitest suite and fails
+# (therefore blocking the PR) whenever any test is broken.
+#
+# To actually enforce the block on merge, enable branch protection:
+#   Repo → Settings → Branches → Add rule for "main"
+#   → Require status checks to pass before merging
+#   → Add the "Unit & Integration Tests" check as required.
+#
+# Inline annotations for failed assertions are produced by vitest's built-in
+# `github-actions` reporter, so broken tests are highlighted directly on the
+# PR diff with no extra third-party actions.
+# ────────────────────────────────────────────────────────────────────────
+name: PR Tests
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  # Lets the workflow command annotations surface on the pull request.
+  checks: write
+  pull-requests: write
+
+# Cancel superseded runs on the same PR to save CI minutes.
+concurrency:
+  group: pr-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+
+    services:
+      # Integration tests (db.test.ts, *.repo.test.ts) need a live Postgres.
+      # The service container creates the `sleekflow_test` database for us.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sleekflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create database tables
+        env:
+          PGPASSWORD: postgres
+        run: >
+          psql
+          -h localhost -p 5432 -U postgres -d sleekflow_test
+          -v ON_ERROR_STOP=1
+          -f src/backend/create-tables.sql
+
+      # `vitest run` exits non-zero as soon as any test fails, which fails the
+      # job and (with branch protection) blocks the PR. The `github-actions`
+      # reporter adds inline annotations for each broken assertion; `default`
+      # keeps the readable summary in the job log.
+      - name: Run tests
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/sleekflow_test
+        run: pnpm test -- --reporter=default --reporter=github-actions
