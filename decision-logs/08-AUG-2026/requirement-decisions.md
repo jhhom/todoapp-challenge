@@ -127,6 +127,8 @@ By advancing the due date relative to when the user actually finished the previo
 
 Question to consider: How to map out the exact date-math logic for how the backend should calculate these intervals (especially for variable lengths like "Monthly"), or should we move on to defining the specific API endpoint payloads?
 
+> **Update (2026-08-08, Q6):** The base for the shift is no longer `completed_at`. For a recurring task **with** a due date, the next occurrence's due date is now anchored on the **previous due date** and advanced by whole intervals until strictly after `completed_at` (catch-up), so an overdue task reschedules to the next future slot rather than `completed_at + interval`. The null-carryover rule above is unchanged: a task **without** a due date still produces a next occurrence with a `null` due date. See `docs/superpowers/specs/2026-08-08-q6-due-date-anchored-recurrence-design.md`.
+
 # 5. For a recurring task without a due date, what distinguish the next schedule todo item with the previous todo item?
 Based on the architectural decisions in our decision log, if a recurring task does not have a due date, the newly generated task will simply carry over that `NULL` due date value.
 
@@ -139,19 +141,7 @@ Even without a due date to anchor it, the new task is distinctly separated from 
 
 By relying on these systemic timestamps and relational links, our backend maintains a clear, deterministic history of every recurrence cycle, completely independent of user-defined deadlines.
 
-# 6. if I have a recurring todo 'Do homework' that recurs on 3 days interval with due date on 2026-08-11, and I completed it today
-
-The next todo generated will have what due date?
-
-The next generated TODO will have a due date of **2026-08-11**.
-
-Here is the exact breakdown of how this is calculated based on our established requirements:
-
-* **The Calculation Base:** Based on the architectural decisions established in your decision log, the next occurrence's schedule is calculated using the `completed_at` timestamp of the original task.
-* **The Math:** The new task's due date is determined by taking that completion date and adding the recurring interval. Since you completed the task today (August 8, 2026) and your custom schedule interval is 3 days, the system adds 3 days to August 8.
-* **The Original Due Date is Ignored:** The original due date you set (2026-08-11) does not factor into calculating the next occurrence's schedule. The system strictly advances the due date relative to the moment you actually finished the previous task.
-
-# 7. If a recurring todo has due date, should the new todo's due date calculated based on the last todo's due date or completion date?
+# 6. If a recurring todo has due date, should the new todo's due date calculated based on the last todo's due date or completion date?
 
 Whether it makes "more sense" to calculate the next schedule based on the original due date versus the completion date depends entirely on the real-world nature of the task. You have uncovered a classic product management debate: **Strict Scheduling vs. Floating Scheduling**.
 
@@ -179,3 +169,5 @@ Calculating based on the completion date (which is our current documented decisi
 ### How this affects our assignment
 
 If you feel that basing it on the **original due date** is a stronger product decision, we can easily pivot your architecture to support it. You would simply change the logic to: *Next Due Date = Original Due Date + Interval*. If the task did not have an original due date, it would fall back to the completion date.
+
+> **Decision (2026-08-08):** We adopted **Strict Scheduling with catch-up**. The next occurrence's due date is computed from the **original due date** (`dueDate + interval`), then advanced by whole intervals until it is strictly after the completion timestamp. This keeps calendar-bound obligations on their fixed cadence (e.g. monthly rent stays due on the 1st) while preventing an overdue daily task from respawning an already-late slot — it skips to the next future slot ("catch-up"). The floating/completion-based behaviour is no longer used. See `docs/superpowers/specs/2026-08-08-q6-due-date-anchored-recurrence-design.md`.

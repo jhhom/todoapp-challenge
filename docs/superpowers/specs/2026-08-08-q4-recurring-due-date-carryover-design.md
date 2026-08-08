@@ -4,6 +4,8 @@
 **Decision log reference:** `decision-logs/08-AUG-2026/requirement-decisions.md` (Q4)
 **Status:** Approved
 
+> **Note (2026-08-08):** The `completedAt + interval` rule described below is superseded for tasks **with** a due date by `docs/superpowers/specs/2026-08-08-q6-due-date-anchored-recurrence-design.md` (due-date-anchored + catch-up). The null-carryover rule in this doc remains valid.
+
 ## Background
 
 Requirement decision Q4 states:
