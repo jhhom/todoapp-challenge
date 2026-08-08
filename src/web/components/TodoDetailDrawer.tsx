@@ -21,6 +21,7 @@ export function TodoDetailDrawer({
   const removeDep = useRemoveDependency();
   const [pickedId, setPickedId] = useState("");
   const [statusErr, setStatusErr] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const detail = useQuery(
     orpc.todo.get.queryOptions({ input: { id: todoId! } }),
@@ -91,10 +92,19 @@ export function TodoDetailDrawer({
             {t.id}
           </code>
           <button
-            className="rounded border px-2 py-1 text-xs"
-            onClick={() => void navigator.clipboard?.writeText(t.id)}
+            className="relative rounded border px-2 py-1 text-xs"
+            onClick={() => {
+              void navigator.clipboard?.writeText(t.id);
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 1200);
+            }}
           >
             copy
+            {copied && (
+              <span className="pointer-events-none absolute -top-7 right-0 rounded bg-foreground px-2 py-0.5 text-[10px] text-background shadow">
+                Copied!
+              </span>
+            )}
           </button>
         </div>
       </div>
