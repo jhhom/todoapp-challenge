@@ -163,7 +163,11 @@ export default function Workspace() {
               <td className="p-2">
                 {t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "—"}
               </td>
-              <td className="p-2">{t.schedule}</td>
+              <td className="p-2">
+                {t.schedule === "custom"
+                  ? `${t.customIntervalDays}d`
+                  : t.schedule}
+              </td>
               <td className="p-2">
                 <BlockedBadge isBlocked={t.isBlocked} />
               </td>

@@ -97,7 +97,7 @@ export function TodoForm() {
               <FieldLabel htmlFor="tf-due">Due date</FieldLabel>
               <Input
                 id="tf-due"
-                type="datetime-local"
+                type="date"
                 value={form.dueDate}
                 onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
               />
