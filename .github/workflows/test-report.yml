@@ -1,0 +1,119 @@
+# Manually-triggered workflow that runs the full vitest suite, generates an
+# interactive HTML report, and publishes it to GitHub Pages.
+#
+# ── Prerequisites ──────────────────────────────────────────────────────
+# 1. Repository → Settings → Pages → "Build and deployment"
+#    → Source = **GitHub Actions**  (not "Deploy from a branch")
+# 2. Trigger from the Actions tab → "Test Report" → "Run workflow".
+#
+# The published URL is printed in the job summary after the run completes:
+#   https://<owner>.github.io/<repo>/
+# ────────────────────────────────────────────────────────────────────────
+name: Test Report
+
+on:
+  workflow_dispatch:
+
+# GitHub Pages deployment requires these permissions.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one deployment at a time; cancel any run that is in progress.
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  test-report:
+    runs-on: ubuntu-latest
+
+    # The `github-pages` environment surfaces the deployed page URL on the
+    # workflow run summary once the deployment finishes.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    services:
+      # Integration tests (db.test.ts, *.repo.test.ts) need a live Postgres.
+      # The service container creates the `sleekflow_test` database for us.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sleekflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create database tables
+        env:
+          PGPASSWORD: postgres
+        run: >
+          psql
+          -h localhost -p 5432 -U postgres -d sleekflow_test
+          -v ON_ERROR_STOP=1
+          -f src/backend/create-tables.sql
+
+      # Resolves the correct base-path for GitHub Pages (e.g. "/my-repo")
+      # so the HTML report loads its assets under the right sub-path.
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        id: pages
+
+      - name: Run tests and generate HTML report
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/sleekflow_test
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: pnpm test:report
+
+      # Always upload + deploy the report — even when tests fail, the report
+      # is valuable for diagnosing what went wrong.
+      - name: Upload Pages artifact
+        if: always()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./test-report
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        if: always()
+        uses: actions/deploy-pages@v4
+
+      - name: Add report URL to job summary
+        if: always()
+        run: |
+          PAGE_URL="${{ steps.deployment.outputs.page_url }}"
+          echo "## 📊 Vitest Report" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$PAGE_URL" ]; then
+            echo "The interactive test report is live at:" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "👉 **[Open Report](${PAGE_URL})**" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Report deployment did not complete. Check the workflow logs above." >> "$GITHUB_STEP_SUMMARY"
+          fi

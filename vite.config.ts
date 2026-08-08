@@ -24,7 +24,11 @@ export default defineConfig({
     // clobbering each other.
     fileParallelism: false,
     env: {
-      DATABASE_URL: "postgres://joohom@localhost:5432/sleekflow_test",
+      // Respect an externally-set DATABASE_URL (e.g. CI) so tests can target a
+      // service-container database. Falls back to the local dev database.
+      DATABASE_URL:
+        process.env.DATABASE_URL ??
+        "postgres://joohom@localhost:5432/sleekflow_test",
     },
   },
 });
