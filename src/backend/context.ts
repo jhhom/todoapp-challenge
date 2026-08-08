@@ -9,5 +9,5 @@ export type ServerContext = {
 
 /** Authenticated context produced by the requireAuth middleware. */
 export type AuthedContext = ServerContext & {
-  user: { id: string; email: string };
+  user: { sub: string; email: string };
 };

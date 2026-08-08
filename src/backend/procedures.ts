@@ -4,11 +4,19 @@ import { database } from "./db";
 import type { ServerContext } from "./context";
 import { createUserRepo } from "./domain/auth/auth.repo";
 import { createAuthService } from "./domain/auth/auth.service";
+import { createTodoRepo } from "./domain/todos/todo.repo";
+import { createTodoService } from "./domain/todos/todo.service";
+import { createDependencyRepo } from "./domain/dependencies/dependency.repo";
+import { createDependencyService } from "./domain/dependencies/dependency.service";
 import { requireAuth } from "./middleware/auth";
 
 export const os = implement(apiContract).$context<ServerContext>();
 
 const authService = createAuthService(createUserRepo(database));
+const dependencyRepo = createDependencyRepo(database);
+const dependencyService = createDependencyService(dependencyRepo);
+const todoRepo = createTodoRepo(database);
+const todoService = createTodoService({ todoRepo, dependencyService });
 
 export const router = os.router({
   auth: {
@@ -20,29 +28,32 @@ export const router = os.router({
     ),
   },
   todo: {
-    // Wired in Task 12 once todo/dependency services exist.
-    list: os.todo.list.use(requireAuth).handler(async () => {
-      throw new Error("todo.list not implemented");
-    }),
-    get: os.todo.get.use(requireAuth).handler(async () => {
-      throw new Error("todo.get not implemented");
-    }),
-    create: os.todo.create.use(requireAuth).handler(async () => {
-      throw new Error("todo.create not implemented");
-    }),
-    update: os.todo.update.use(requireAuth).handler(async () => {
-      throw new Error("todo.update not implemented");
-    }),
-    delete: os.todo.delete.use(requireAuth).handler(async () => {
-      throw new Error("todo.delete not implemented");
-    }),
-    addDependency: os.todo.addDependency.use(requireAuth).handler(async () => {
-      throw new Error("todo.addDependency not implemented");
-    }),
+    list: os.todo.list
+      .use(requireAuth)
+      .handler(async ({ input }) => todoService.list(input)),
+    get: os.todo.get
+      .use(requireAuth)
+      .handler(async ({ input }) => todoService.get(input.id)),
+    create: os.todo.create
+      .use(requireAuth)
+      .handler(async ({ input, context }) =>
+        todoService.create({ ...input, createdBy: context.user.sub }),
+      ),
+    update: os.todo.update
+      .use(requireAuth)
+      .handler(async ({ input }) => todoService.update(input.id, input)),
+    delete: os.todo.delete
+      .use(requireAuth)
+      .handler(async ({ input }) => todoService.softDelete(input.id)),
+    addDependency: os.todo.addDependency
+      .use(requireAuth)
+      .handler(async ({ input }) =>
+        todoService.addDependency(input.taskId, input.dependsOnId),
+      ),
     removeDependency: os.todo.removeDependency
       .use(requireAuth)
-      .handler(async () => {
-        throw new Error("todo.removeDependency not implemented");
-      }),
+      .handler(async ({ input }) =>
+        todoService.removeDependency(input.taskId, input.dependsOnId),
+      ),
   },
 });
