@@ -18,9 +18,7 @@ You *could* program the system to automatically demote the current task back to 
 
 ---
 
-### How to frame this in your Decision Log
-
-Here is how you can document this to show the evaluators that your backend validation is comprehensive and protects the state machine at all times:
+### How to frame this in our Decision Log
 
 > **Adding Dependencies to "In Progress" Tasks**
 > 
@@ -91,7 +89,7 @@ Imagine a scenario involving certifications or periodic reviews:
 
 In this scenario, Tuesday's machinery task should absolutely spawn linked to the *already completed* 2026 certification, meaning it spawns unblocked.
 
-### How to handle this in your project
+### How to handle this in our project
 
 Do not try to write code to solve this edge case for the assignment. Automatically inferring user intent when recurring schedules mismatch is notoriously difficult and requires complex calendar-matching algorithms.
 
@@ -112,3 +110,72 @@ This can be something we can consider in **"What we would do differently with mo
 **Reasoning**: The requirements do not specify restrictions on the timeframe of the due date. In real-world scenarios, users often use TODO lists retroactively for tracking, auditing, or logging tasks they forgot to enter beforehand. Enforcing a strict "future-only" rule would artificially restrict this valid user behavior.
 
 **Trade-off**: The frontend UI might need extra logic to highlight past due dates in red (as "Overdue") immediately upon creation. However, prioritizing user flexibility and avoiding complex timezone validation on the backend is a worthwhile trade-off.
+
+# 4. For recurring todo with due date, when its next todo is created, does the due date stay the same?
+
+Based on the requirements and the architectural decisions you have already established in our decision log, no, the due date does not stay the same.
+
+If the due date stayed the exact same, the newly generated task would immediately be overdue (or share the exact same deadline as the task you just finished), which defeats the purpose of a recurring schedule.
+
+Here is exactly how the new due date should be handled based on our documented decisions:
+
+* It shifts forward based on the completion date: You made the specific decision that the next occurrence's schedule is calculated based on the completed_at timestamp of the original task. Therefore, the new task's due date will be the completed_at timestamp plus the recurring interval (e.g., Daily, Weekly, Monthly, or a Custom day-interval).
+
+* Handling missing due dates: You also established that a task can exist without a due date. If a user completes a recurring task where the due date was left blank (NULL), the newly generated task should simply carry over that NULL value.
+
+By advancing the due date relative to when the user actually finished the previous task, you ensure the user gets a full, standard interval to complete the next cycle.
+
+Question to consider: How to map out the exact date-math logic for how the backend should calculate these intervals (especially for variable lengths like "Monthly"), or should we move on to defining the specific API endpoint payloads?
+
+# 5. For a recurring task without a due date, what distinguish the next schedule todo item with the previous todo item?
+Based on the architectural decisions in our decision log, if a recurring task does not have a due date, the newly generated task will simply carry over that `NULL` due date value.
+
+Even without a due date to anchor it, the new task is distinctly separated from the previous task through several key database fields and state changes:
+
+* **Unique ID:** Every TODO item receives its own unique UUID upon creation. The new schedule will be an entirely distinct database record.
+* **Creation Date (`created_at`):** The new task will have a fresh `created_at` timestamp representing the exact moment the system automatically generated it.
+* **Completion Date (`completed_at`):** The previous task will have a populated `completed_at` timestamp, which serves as the record of exactly when its status changed to "Completed". The newly generated task will inherently not have a completion date yet.
+* **Generation Linkage (`next_occurrence_id`):** The previous task will have its `next_occurrence_id` column updated to store the unique ID of the newly generated task. This linkage tracks the generation state and ensures that if a user un-completes the previous task, the system knows it has already spawned its successor.
+
+By relying on these systemic timestamps and relational links, our backend maintains a clear, deterministic history of every recurrence cycle, completely independent of user-defined deadlines.
+
+# 6. if I have a recurring todo 'Do homework' that recurs on 3 days interval with due date on 2026-08-11, and I completed it today
+
+The next todo generated will have what due date?
+
+The next generated TODO will have a due date of **2026-08-11**.
+
+Here is the exact breakdown of how this is calculated based on our established requirements:
+
+* **The Calculation Base:** Based on the architectural decisions established in your decision log, the next occurrence's schedule is calculated using the `completed_at` timestamp of the original task.
+* **The Math:** The new task's due date is determined by taking that completion date and adding the recurring interval. Since you completed the task today (August 8, 2026) and your custom schedule interval is 3 days, the system adds 3 days to August 8.
+* **The Original Due Date is Ignored:** The original due date you set (2026-08-11) does not factor into calculating the next occurrence's schedule. The system strictly advances the due date relative to the moment you actually finished the previous task.
+
+# 7. If a recurring todo has due date, should the new todo's due date calculated based on the last todo's due date or completion date?
+
+Whether it makes "more sense" to calculate the next schedule based on the original due date versus the completion date depends entirely on the real-world nature of the task. You have uncovered a classic product management debate: **Strict Scheduling vs. Floating Scheduling**.
+
+Here is a breakdown of why both approaches are valid, and how they impact the user:
+
+### 1. The Case for the Original Due Date (Strict Scheduling)
+
+Calculating based on the original due date makes the most sense for **calendar-bound obligations**.
+
+* **Example:** "Pay Monthly Rent" due on August 1st.
+* **The Scenario:** You forget and pay it 5 days late on August 6th.
+* **The Result:** The next rent payment should still be due exactly on September 1st. If the system calculated it based on your completion date (August 6th + 1 month), your rent would suddenly be due on September 6th, which is incorrect.
+* **The Flaw / Edge Case:** What happens if a Daily task is 5 days overdue? If you complete it today, does the system generate yesterday's task (which is already overdue), or does it intelligently skip ahead to tomorrow? This requires complex "catch-up" logic.
+
+### 2. The Case for the Completion Date (Floating Scheduling)
+
+Calculating based on the completion date (which is our current documented decision) makes the most sense for **maintenance and habits**.
+
+* **Example:** "Mow the Lawn" (Weekly).
+* **The Scenario:** It rains, so you mow the lawn 3 days late.
+* **The Result:** You don't want the system to tell you to mow the lawn again in just 4 days. You want a full 7-day break before you have to do it again. The cycle needs to reset based on when you actually did the work.
+
+---
+
+### How this affects our assignment
+
+If you feel that basing it on the **original due date** is a stronger product decision, we can easily pivot your architecture to support it. You would simply change the logic to: *Next Due Date = Original Due Date + Interval*. If the task did not have an original due date, it would fall back to the completion date.
