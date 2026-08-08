@@ -78,24 +78,25 @@ describe("todoService", () => {
     expect(next.dueDate).toBeNull();
   });
 
-  it("shifts the due date by the interval on the next occurrence (Q4)", async () => {
+  it("anchors the next due date on the previous due date (Q6)", async () => {
     const user = await seedUser();
     const svc = makeService();
     const created = await svc.create({
-      name: "Daily, with due date",
+      name: "Daily, future due date",
       createdBy: String(user.id),
       schedule: "daily",
       priority: "medium",
-      dueDate: "2026-08-10T09:00:00Z",
+      // A future due date (not overdue) -> next due = dueDate + 1 day,
+      // independent of completedAt. 2099 keeps it future-dated (no catch-up)
+      // so the assertion is deterministic and clock-independent.
+      dueDate: "2099-01-10T00:00:00Z",
     });
     const completed = await svc.update(created.id, { status: "completed" });
     expect(completed.nextOccurrenceId).not.toBeNull();
-    expect(completed.completedAt).not.toBeNull();
     const next = await svc.get(completed.nextOccurrenceId!);
-    // Daily shift: completedAt + 1 day.
-    const expected = new Date(completed.completedAt!);
-    expected.setUTCDate(expected.getUTCDate() + 1);
-    expect(next.dueDate).toBe(expected.toISOString());
+    // Due-date-anchored: next due is exactly dueDate + 1 day. toISOString()
+    // always emits milliseconds, so the expected string includes .000Z.
+    expect(next.dueDate).toBe("2099-01-11T00:00:00.000Z");
   });
 
   it("does not spawn a duplicate when re-completing after reversal", async () => {

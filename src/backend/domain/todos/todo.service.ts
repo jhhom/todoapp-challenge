@@ -158,13 +158,15 @@ export function createTodoService(deps: {
         const now = new Date();
         updates.completedAt = now;
         if (todo.schedule !== "none" && !todo.nextOccurrenceId) {
-          // Q4: a recurring task with no due date produces a next occurrence
-          // with no due date. Only tasks that already had a due date get the
-          // completedAt + interval shift.
+          // Q6: anchor on the completed task's own due date and skip ahead
+          // (catch-up) until the next slot is strictly after completion. A
+          // task with no due date still produces a next occurrence with no
+          // due date (Q4 null carryover).
           const nextDue = todo.dueDate
             ? computeNextDueDate(
                 todo.schedule as never,
                 todo.customIntervalDays,
+                todo.dueDate,
                 now,
               )
             : null;

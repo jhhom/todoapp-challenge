@@ -276,8 +276,9 @@ In `src/backend/domain/todos/todo.service.test.ts`, replace the entire `"shifts 
     const completed = await svc.update(created.id, { status: "completed" });
     expect(completed.nextOccurrenceId).not.toBeNull();
     const next = await svc.get(completed.nextOccurrenceId!);
-    // Due-date-anchored: next due is exactly dueDate + 1 day.
-    expect(next.dueDate).toBe("2099-01-11T00:00:00Z");
+    // Due-date-anchored: next due is exactly dueDate + 1 day. toISOString()
+    // always emits milliseconds, so the expected string includes .000Z.
+    expect(next.dueDate).toBe("2099-01-11T00:00:00.000Z");
   });
 ```
 

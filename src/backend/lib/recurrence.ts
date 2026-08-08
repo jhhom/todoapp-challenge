@@ -3,35 +3,55 @@ export type Schedule = "none" | "daily" | "weekly" | "monthly" | "custom";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Pure recurrence date math.
- *
- * The next occurrence's due date is always calculated from `completedAt`
- * (the authoritative base date per the design spec).
- * Returns null when the schedule is "none".
+ * Advance a date by exactly one recurrence interval.
  */
-export function computeNextDueDate(
+function advanceOne(
   schedule: Schedule,
   customIntervalDays: number | null,
-  completedAt: Date,
-): Date | null {
+  from: Date,
+): Date {
   switch (schedule) {
-    case "none":
-      return null;
     case "daily":
-      return new Date(completedAt.getTime() + DAY_MS);
+      return new Date(from.getTime() + DAY_MS);
     case "weekly":
-      return new Date(completedAt.getTime() + 7 * DAY_MS);
+      return new Date(from.getTime() + 7 * DAY_MS);
     case "monthly": {
-      const next = new Date(completedAt);
+      const next = new Date(from);
       next.setUTCMonth(next.getUTCMonth() + 1);
       return next;
     }
     case "custom": {
       const days =
         customIntervalDays && customIntervalDays > 0 ? customIntervalDays : 1;
-      return new Date(completedAt.getTime() + days * DAY_MS);
+      return new Date(from.getTime() + days * DAY_MS);
     }
     default:
-      return null;
+      return new Date(from.getTime() + DAY_MS);
   }
+}
+
+/**
+ * Pure recurrence date math with catch-up.
+ *
+ * The next occurrence's due date is anchored on the completed task's own
+ * `anchorDueDate` (Strict Scheduling, Q6). It advances one interval at a time
+ * until it lands strictly after `completedAt`, so an overdue task skips the
+ * missed periods and reschedules to the next future slot instead of an
+ * already-overdue date.
+ *
+ * Returns null when the schedule is "none". The null-due-date carryover policy
+ * (Q4) is handled by the caller.
+ */
+export function computeNextDueDate(
+  schedule: Schedule,
+  customIntervalDays: number | null,
+  anchorDueDate: Date,
+  completedAt: Date,
+): Date | null {
+  if (schedule === "none") return null;
+  let next = advanceOne(schedule, customIntervalDays, anchorDueDate);
+  while (next.getTime() <= completedAt.getTime()) {
+    next = advanceOne(schedule, customIntervalDays, next);
+  }
+  return next;
 }
