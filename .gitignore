@@ -12,9 +12,6 @@ dist
 dist-ssr
 *.local
 
-# Generated OpenAPI spec (run `pnpm openapi:gen` to regenerate)
-openapi.json
-
 # Editor directories and files
 # .vscode/*
 !.vscode/extensions.json

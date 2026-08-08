@@ -1,0 +1,655 @@
+{
+  "info": {
+    "title": "Sleekflow Todo API",
+    "version": "1.0.0",
+    "description": "A type-safe Todo management API built with [oRPC](https://orpc.dev). Supports recurring tasks, dependencies, real-time SSE updates, filtering, sorting, and pagination.\n\n## Authentication\n\nAll `/todos/**` endpoints require a Bearer JWT obtained from `POST /auth/register` or `POST /auth/login`. Pass it in the `Authorization` header:\n\n```\nAuthorization: Bearer <token>\n```"
+  },
+  "servers": [
+    { "url": "http://localhost:5170/api", "description": "Local dev server" }
+  ],
+  "openapi": "3.1.1",
+  "components": {
+    "schemas": {
+      "Todo": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string", "minLength": 1 },
+          "description": {
+            "anyOf": [{ "type": "string" }, { "type": "null" }]
+          },
+          "dueDate": {
+            "anyOf": [
+              { "type": "string", "format": "date-time" },
+              { "type": "null" }
+            ]
+          },
+          "status": {
+            "enum": ["not_started", "in_progress", "completed", "archived"],
+            "type": "string"
+          },
+          "priority": { "enum": ["low", "medium", "high"], "type": "string" },
+          "schedule": {
+            "enum": ["none", "daily", "weekly", "monthly", "custom"],
+            "type": "string"
+          },
+          "customIntervalDays": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "exclusiveMinimum": 0
+              },
+              { "type": "null" }
+            ]
+          },
+          "nextOccurrenceId": {
+            "anyOf": [
+              { "type": "string", "format": "uuid" },
+              { "type": "null" }
+            ]
+          },
+          "createdBy": { "type": "string", "format": "uuid" },
+          "createdByEmail": {
+            "anyOf": [
+              { "type": "string", "format": "email" },
+              { "type": "null" }
+            ]
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "completedAt": {
+            "anyOf": [
+              { "type": "string", "format": "date-time" },
+              { "type": "null" }
+            ]
+          },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "isBlocked": { "type": "boolean" },
+          "dependencies": {
+            "type": "array",
+            "items": { "type": "string", "format": "uuid" }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "dueDate",
+          "status",
+          "priority",
+          "schedule",
+          "customIntervalDays",
+          "nextOccurrenceId",
+          "createdBy",
+          "createdByEmail",
+          "createdAt",
+          "completedAt",
+          "updatedAt",
+          "isBlocked",
+          "dependencies"
+        ]
+      },
+      "PageMeta": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "totalPages": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["total", "page", "pageSize", "totalPages"]
+      },
+      "TokenOutput": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string" },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "email": { "type": "string", "format": "email" }
+            },
+            "required": ["id", "email"]
+          }
+        },
+        "required": ["token", "user"]
+      },
+      "TodoChangeEvent": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted",
+              "dependency.added",
+              "dependency.removed"
+            ],
+            "type": "string"
+          },
+          "todoId": { "type": "string", "format": "uuid" },
+          "dependsOnId": { "type": "string", "format": "uuid" }
+        },
+        "required": ["action", "todoId"]
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "operationId": "auth.register",
+        "summary": "Register a new account",
+        "description": "Creates a new user and returns a JWT token for subsequent requests.",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TokenOutput" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "auth.login",
+        "summary": "Login and receive a JWT",
+        "description": "Authenticates a user with email and password, returning a JWT token.",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 1 }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TokenOutput" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/todos": {
+      "get": {
+        "operationId": "todo.list",
+        "summary": "List todos with filtering, sorting, and pagination",
+        "tags": ["Todos"],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1
+            },
+            "allowEmptyValue": true,
+            "allowReserved": true
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "allowEmptyValue": true,
+            "allowReserved": true
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "enum": ["not_started", "in_progress", "completed", "archived"],
+              "type": "string"
+            },
+            "allowEmptyValue": true,
+            "allowReserved": true
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "schema": { "enum": ["low", "medium", "high"], "type": "string" },
+            "allowEmptyValue": true,
+            "allowReserved": true
+          },
+          {
+            "name": "dueBefore",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" },
+            "allowEmptyValue": true,
+            "allowReserved": true
+          },
+          {
+            "name": "dueAfter",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" },
+            "allowEmptyValue": true,
+            "allowReserved": true
+          },
+          {
+            "name": "blocked",
+            "in": "query",
+            "schema": { "enum": ["blocked", "unblocked"], "type": "string" },
+            "allowEmptyValue": true,
+            "allowReserved": true
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "enum": ["createdAt", "dueDate", "priority", "status", "name"],
+              "type": "string"
+            },
+            "allowEmptyValue": true,
+            "allowReserved": true
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "enum": ["asc", "desc"],
+              "type": "string",
+              "default": "desc"
+            },
+            "allowEmptyValue": true,
+            "allowReserved": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Todo" }
+                    },
+                    "meta": { "$ref": "#/components/schemas/PageMeta" }
+                  },
+                  "required": ["items", "meta"]
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      },
+      "post": {
+        "operationId": "todo.create",
+        "summary": "Create a new todo",
+        "tags": ["Todos"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "minLength": 1 },
+                  "description": { "type": "string" },
+                  "dueDate": { "type": "string", "format": "date-time" },
+                  "status": {
+                    "enum": [
+                      "not_started",
+                      "in_progress",
+                      "completed",
+                      "archived"
+                    ],
+                    "type": "string",
+                    "default": "not_started"
+                  },
+                  "priority": {
+                    "enum": ["low", "medium", "high"],
+                    "type": "string",
+                    "default": "medium"
+                  },
+                  "schedule": {
+                    "enum": ["none", "daily", "weekly", "monthly", "custom"],
+                    "type": "string",
+                    "default": "none"
+                  },
+                  "customIntervalDays": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991,
+                    "exclusiveMinimum": 0
+                  },
+                  "dependencyIds": {
+                    "type": "array",
+                    "items": { "type": "string", "format": "uuid" },
+                    "default": []
+                  }
+                },
+                "required": ["name"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Todo" }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/todos/{id}": {
+      "get": {
+        "operationId": "todo.get",
+        "summary": "Get a single todo by ID",
+        "tags": ["Todos"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Todo" }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      },
+      "patch": {
+        "operationId": "todo.update",
+        "summary": "Update an existing todo",
+        "tags": ["Todos"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "minLength": 1 },
+                  "description": { "type": "string" },
+                  "dueDate": {
+                    "anyOf": [
+                      { "type": "string", "format": "date-time" },
+                      { "type": "null" }
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "not_started",
+                      "in_progress",
+                      "completed",
+                      "archived"
+                    ],
+                    "type": "string"
+                  },
+                  "priority": {
+                    "enum": ["low", "medium", "high"],
+                    "type": "string"
+                  },
+                  "schedule": {
+                    "enum": ["none", "daily", "weekly", "monthly", "custom"],
+                    "type": "string"
+                  },
+                  "customIntervalDays": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "exclusiveMinimum": 0
+                      },
+                      { "type": "null" }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Todo" }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      },
+      "delete": {
+        "operationId": "todo.delete",
+        "summary": "Soft-delete a todo",
+        "tags": ["Todos"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "success": { "type": "boolean" } },
+                  "required": ["success"]
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/todos/{taskId}/dependencies/{dependsOnId}": {
+      "post": {
+        "operationId": "todo.addDependency",
+        "summary": "Add a dependency to a todo",
+        "tags": ["Dependencies"],
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "dependsOnId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "success": { "type": "boolean" } },
+                  "required": ["success"]
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      },
+      "delete": {
+        "operationId": "todo.removeDependency",
+        "summary": "Remove a dependency from a todo",
+        "tags": ["Dependencies"],
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "dependsOnId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "success": { "type": "boolean" } },
+                  "required": ["success"]
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/todos/changed": {
+      "get": {
+        "operationId": "todo.changed",
+        "summary": "Subscribe to todo change events (SSE stream)",
+        "description": "Server-Sent Events stream that emits a notification whenever a todo or todo dependency is created, updated, or deleted.",
+        "tags": ["Todos"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "event": { "const": "message" },
+                        "data": {
+                          "$ref": "#/components/schemas/TodoChangeEvent"
+                        },
+                        "id": { "type": "string" },
+                        "retry": { "type": "number" }
+                      },
+                      "required": ["event", "data"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "event": { "const": "done" },
+                        "data": {},
+                        "id": { "type": "string" },
+                        "retry": { "type": "number" }
+                      },
+                      "required": ["event"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "event": { "const": "error" },
+                        "data": {},
+                        "id": { "type": "string" },
+                        "retry": { "type": "number" }
+                      },
+                      "required": ["event"]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    }
+  }
+}
