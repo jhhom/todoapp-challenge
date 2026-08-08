@@ -1,4 +1,4 @@
-# SleekFlow Software Engineer Project
+# Software Engineer Project
 
 ## Objective
 Develop a TODO list web application that allows users to manage their TODOs.

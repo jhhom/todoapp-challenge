@@ -18,8 +18,8 @@ importers:
         specifier: ^1.12.3
         version: 1.12.3(ws@8.18.3)
       '@orpc/tanstack-query':
-        specifier: ^1.12.3
-        version: 1.12.3(@orpc/client@1.12.3)(@tanstack/query-core@5.90.12)
+        specifier: ^1.14.15
+        version: 1.14.15(@orpc/client@1.12.3)(@tanstack/query-core@5.90.12)
       '@tailwindcss/vite':
         specifier: ^4.1.18
         version: 4.1.18(vite@7.2.7(@types/node@24.10.3)(jiti@2.7.0)(lightningcss@1.30.2))
@@ -38,6 +38,9 @@ importers:
       '@tanstack/react-router-devtools':
         specifier: ^1.141.2
         version: 1.141.2(@tanstack/react-router@1.141.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@tanstack/router-core@1.171.17)(csstype@3.2.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(solid-js@1.9.10)
+      bcrypt:
+        specifier: ^6.0.0
+        version: 6.0.0
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -47,6 +50,9 @@ importers:
       express:
         specifier: ^5.2.1
         version: 5.2.1
+      jose:
+        specifier: ^6.2.8
+        version: 6.2.8
       kysely:
         specifier: ^0.28.8
         version: 0.28.17
@@ -87,6 +93,9 @@ importers:
       '@tanstack/router-plugin':
         specifier: ^1.168.25
         version: 1.168.25(@tanstack/react-router@1.141.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(esbuild@0.25.12)(rollup@4.53.3)(vite@7.2.7(@types/node@24.10.3)(jiti@2.7.0)(lightningcss@1.30.2))
+      '@types/bcrypt':
+        specifier: ^6.0.0
+        version: 6.0.0
       '@types/cors':
         specifier: ^2.8.19
         version: 2.8.19
@@ -620,6 +629,14 @@ packages:
       '@opentelemetry/api':
         optional: true
 
+  '@orpc/shared@1.14.15':
+    resolution: {integrity: sha512-lECt2hPpe38nv2T3KpKgi8akCBXgL2KnJy8YslNgiP66WVrkdgV2UoxZU5BghJ3yCeE1KwQ+evv+JxdUuiJmXQ==}
+    peerDependencies:
+      '@opentelemetry/api': '>=1.9.0'
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+
   '@orpc/standard-server-aws-lambda@1.12.3':
     resolution: {integrity: sha512-kh8HnwryMIWJJ4601kMJ4dlTBOnqLL7+Xk7zz0XSX24geHgutMb1cRMz4UcHg2ttoLTFWjCCJv7Xc6+AOMWONg==}
 
@@ -643,10 +660,10 @@ packages:
   '@orpc/standard-server@1.12.3':
     resolution: {integrity: sha512-m69mZ0D3u/zCKW0RXWYlPOW+0xqMA8mfHjpdP+B2SwLM2MUPr3P0R0J/RjAyffbja3Dj5QPKpL0xkIyDxELodA==}
 
-  '@orpc/tanstack-query@1.12.3':
-    resolution: {integrity: sha512-XyDM6vorYkdHXm9pXi1q/FAfxNGtNRYKApU+cL8HE2LziTS7C33YnAhYsdHAHcWZ4kG8V+TEREQRlpv7QvAeyQ==}
+  '@orpc/tanstack-query@1.14.15':
+    resolution: {integrity: sha512-4O+rgIq4+i+uT6WSxB3XgUfR47HccpDqgubnAuWSHCWniw/J0VIhK0aF3HOdbQYlNvQ4iE3rmJmFq+2xK/hJTw==}
     peerDependencies:
-      '@orpc/client': 1.12.3
+      '@orpc/client': 1.14.15
       '@tanstack/query-core': '>=5.80.2'
 
   '@rolldown/pluginutils@1.0.0-beta.53':
@@ -1048,6 +1065,9 @@ packages:
   '@types/babel__traverse@7.28.0':
     resolution: {integrity: sha512-8PvcXf70gTDZBgt9ptxJ8elBeBjcLOAcOtoO/mPJjtji1+CdGbHgm77om1GrsPxsiE+uXIpNSK64UYaIwQXd4Q==}
 
+  '@types/bcrypt@6.0.0':
+    resolution: {integrity: sha512-/oJGukuH3D2+D+3H4JWLaAsJ/ji86dhRidzZ/Od7H/i8g+aCmvkeCc6Ni/f9uxGLSQVCRZkX2/lqEFG2BvWtlQ==}
+
   '@types/body-parser@1.19.6':
     resolution: {integrity: sha512-HLFeCYgz89uk22N5Qg3dvGvsv46B8GLvKKo1zKG4NybA8U2DiEO3w9lqGg29t/tfLRJpJ6iQxnVw4OnB7MoM9g==}
 
@@ -1289,6 +1309,10 @@ packages:
   baseline-browser-mapping@2.9.7:
     resolution: {integrity: sha512-k9xFKplee6KIio3IDbwj+uaCLpqzOwakOgmqzPezM0sFJlFKcg30vk2wOiAJtkTSfx0SSQDSe8q+mWA/fSH5Zg==}
     hasBin: true
+
+  bcrypt@6.0.0:
+    resolution: {integrity: sha512-cU8v/EGSrnH+HnxV2z0J7/blxH8gq7Xh2JFT6Aroax7UohdmiJJlxApMxtKfuI7z68NvvVcmR78k2LbT6efhRg==}
+    engines: {node: '>= 18'}
 
   body-parser@2.2.1:
     resolution: {integrity: sha512-nfDwkulwiZYQIGwxdy0RUmowMhKcFVcYXUU7m4QlKYim1rUtg83xm2yjZ40QjDuc291AJjjeSc9b++AWHSgSHw==}
@@ -2293,6 +2317,14 @@ packages:
     resolution: {integrity: sha512-8Ofs/AUQh8MaEcrlq5xOX0CQ9ypTF5dl78mjlMNfOK08fzpgTHQRQPBxcPlEtIw0yRpws+Zo/3r+5WRby7u3Gg==}
     engines: {node: '>= 0.6'}
 
+  node-addon-api@8.9.1:
+    resolution: {integrity: sha512-4eUQWVPCUUUiBjLnHS3cXWeC6ryoPUc0U3rP7IuzapoGbzMqd/r6KKO0clr0b+snQhsrueFEhCZDdK+LK7hxKg==}
+    engines: {node: ^18 || ^20 || >= 21}
+
+  node-gyp-build@4.8.4:
+    resolution: {integrity: sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==}
+    hasBin: true
+
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
 
@@ -2871,6 +2903,10 @@ packages:
 
   type-fest@5.3.1:
     resolution: {integrity: sha512-VCn+LMHbd4t6sF3wfU/+HKT63C9OoyrSIf4b+vtWHpt2U7/4InZG467YDNMFMR70DdHjAdpPWmw2lzRdg0Xqqg==}
+    engines: {node: '>=20'}
+
+  type-fest@5.8.0:
+    resolution: {integrity: sha512-YGYEVz3Fm5iy/AybuA0oyNFq7H4CgQNfRp/qfe8nurE1kuCeNm3/vfm9X4Mtl+qLyaKJUh5xrFZwogr41SMjYA==}
     engines: {node: '>=20'}
 
   type-is@2.0.1:
@@ -3649,6 +3685,11 @@ snapshots:
       radash: 12.1.1
       type-fest: 5.3.1
 
+  '@orpc/shared@1.14.15':
+    dependencies:
+      radash: 12.1.1
+      type-fest: 5.8.0
+
   '@orpc/standard-server-aws-lambda@1.12.3':
     dependencies:
       '@orpc/shared': 1.12.3
@@ -3694,10 +3735,10 @@ snapshots:
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/tanstack-query@1.12.3(@orpc/client@1.12.3)(@tanstack/query-core@5.90.12)':
+  '@orpc/tanstack-query@1.14.15(@orpc/client@1.12.3)(@tanstack/query-core@5.90.12)':
     dependencies:
       '@orpc/client': 1.12.3
-      '@orpc/shared': 1.12.3
+      '@orpc/shared': 1.14.15
       '@tanstack/query-core': 5.90.12
     transitivePeerDependencies:
       - '@opentelemetry/api'
@@ -4087,6 +4128,10 @@ snapshots:
     dependencies:
       '@babel/types': 7.28.5
 
+  '@types/bcrypt@6.0.0':
+    dependencies:
+      '@types/node': 24.10.3
+
   '@types/body-parser@1.19.6':
     dependencies:
       '@types/connect': 3.4.38
@@ -4376,6 +4421,11 @@ snapshots:
   balanced-match@4.0.4: {}
 
   baseline-browser-mapping@2.9.7: {}
+
+  bcrypt@6.0.0:
+    dependencies:
+      node-addon-api: 8.9.1
+      node-gyp-build: 4.8.4
 
   body-parser@2.2.1:
     dependencies:
@@ -5293,6 +5343,10 @@ snapshots:
 
   negotiator@1.0.0: {}
 
+  node-addon-api@8.9.1: {}
+
+  node-gyp-build@4.8.4: {}
+
   node-releases@2.0.27: {}
 
   npm-run-path@4.0.1:
@@ -5869,6 +5923,10 @@ snapshots:
       prelude-ls: 1.2.1
 
   type-fest@5.3.1:
+    dependencies:
+      tagged-tag: 1.0.0
+
+  type-fest@5.8.0:
     dependencies:
       tagged-tag: 1.0.0
 

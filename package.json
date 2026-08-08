@@ -15,16 +15,18 @@
     "@orpc/client": "^1.12.3",
     "@orpc/contract": "^1.12.3",
     "@orpc/server": "^1.12.3",
-    "@orpc/tanstack-query": "^1.12.3",
+    "@orpc/tanstack-query": "^1.14.15",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "^0.8.4",
     "@tanstack/react-query": "^5.90.12",
     "@tanstack/react-query-devtools": "^5.91.1",
     "@tanstack/react-router": "^1.141.2",
     "@tanstack/react-router-devtools": "^1.141.2",
+    "bcrypt": "^6.0.0",
     "clsx": "^2.1.1",
     "cors": "^2.8.5",
     "express": "^5.2.1",
+    "jose": "^6.2.8",
     "kysely": "^0.28.8",
     "node": "link:@orpc/server/node",
     "pg": "^8.16.3",
@@ -40,6 +42,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@tanstack/router-plugin": "^1.168.25",
+    "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^24.10.1",
@@ -55,5 +58,8 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["bcrypt"]
   }
 }
