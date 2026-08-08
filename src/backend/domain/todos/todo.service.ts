@@ -158,11 +158,16 @@ export function createTodoService(deps: {
         const now = new Date();
         updates.completedAt = now;
         if (todo.schedule !== "none" && !todo.nextOccurrenceId) {
-          const nextDue = computeNextDueDate(
-            todo.schedule as never,
-            todo.customIntervalDays,
-            now,
-          );
+          // Q4: a recurring task with no due date produces a next occurrence
+          // with no due date. Only tasks that already had a due date get the
+          // completedAt + interval shift.
+          const nextDue = todo.dueDate
+            ? computeNextDueDate(
+                todo.schedule as never,
+                todo.customIntervalDays,
+                now,
+              )
+            : null;
           const clone = await todoRepo.insert({
             name: todo.name,
             description: todo.description,

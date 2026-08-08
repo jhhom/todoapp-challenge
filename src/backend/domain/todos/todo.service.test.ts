@@ -61,6 +61,43 @@ describe("todoService", () => {
     expect(completed.nextOccurrenceId).not.toBeNull();
   });
 
+  it("carries over a null due date to the next occurrence (Q4)", async () => {
+    const user = await seedUser();
+    const svc = makeService();
+    const created = await svc.create({
+      name: "Daily, no due date",
+      createdBy: String(user.id),
+      schedule: "daily",
+      priority: "medium",
+      // No dueDate: the next occurrence must also have a null due date.
+    });
+    expect(created.dueDate).toBeNull();
+    const completed = await svc.update(created.id, { status: "completed" });
+    expect(completed.nextOccurrenceId).not.toBeNull();
+    const next = await svc.get(completed.nextOccurrenceId!);
+    expect(next.dueDate).toBeNull();
+  });
+
+  it("shifts the due date by the interval on the next occurrence (Q4)", async () => {
+    const user = await seedUser();
+    const svc = makeService();
+    const created = await svc.create({
+      name: "Daily, with due date",
+      createdBy: String(user.id),
+      schedule: "daily",
+      priority: "medium",
+      dueDate: "2026-08-10T09:00:00Z",
+    });
+    const completed = await svc.update(created.id, { status: "completed" });
+    expect(completed.nextOccurrenceId).not.toBeNull();
+    expect(completed.completedAt).not.toBeNull();
+    const next = await svc.get(completed.nextOccurrenceId!);
+    // Daily shift: completedAt + 1 day.
+    const expected = new Date(completed.completedAt!);
+    expected.setUTCDate(expected.getUTCDate() + 1);
+    expect(next.dueDate).toBe(expected.toISOString());
+  });
+
   it("does not spawn a duplicate when re-completing after reversal", async () => {
     const user = await seedUser();
     const svc = makeService();
