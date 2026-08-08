@@ -1,12 +1,66 @@
 # API Documentation
 
-The backend exposes a type-safe RPC API via [oRPC](https://orpc.unnoq.io).
+The backend exposes its API in two complementary ways via [oRPC](https://orpc.unnoq.io):
 
-- **Base URL:** `http://localhost:5170/rpc`
+| Interface | Base URL | Use case |
+| --- | --- | --- |
+| **RPC** (type-safe) | `http://localhost:5170/rpc` | Internal frontend calls via the typed oRPC + TanStack Query client |
+| **REST / OpenAPI** | `http://localhost:5170/api` | Third-party integrations, curl, Postman, generated SDKs |
+
+## OpenAPI Specification
+
+A fully generated **OpenAPI 3.1.1** document is available at:
+
+```
+http://localhost:5170/openapi.json
+```
+
+Regenerate the spec to a local file for CI/tooling:
+
+```bash
+pnpm openapi:gen     # writes openapi.json at the project root
+```
+
+### REST endpoint map
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| `POST` | `/auth/register` | — | Register a new account |
+| `POST` | `/auth/login` | — | Login and receive a JWT |
+| `GET` | `/todos` | ✅ | List todos (query params for filtering/sorting/pagination) |
+| `POST` | `/todos` | ✅ | Create a todo |
+| `GET` | `/todos/{id}` | ✅ | Get a single todo |
+| `PATCH` | `/todos/{id}` | ✅ | Update a todo |
+| `DELETE` | `/todos/{id}` | ✅ | Soft-delete a todo |
+| `POST` | `/todos/{taskId}/dependencies/{dependsOnId}` | ✅ | Add a dependency |
+| `DELETE` | `/todos/{taskId}/dependencies/{dependsOnId}` | ✅ | Remove a dependency |
+| `GET` | `/todos/changed` | ✅ | SSE stream of todo change events |
+
+### curl examples
+
+```bash
+# Register
+curl -X POST http://localhost:5170/api/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"user@example.com","password":"secret123"}'
+
+# List todos (replace <token>)
+curl http://localhost:5170/api/todos?page=1&pageSize=10&status=in_progress \
+  -H 'Authorization: Bearer <token>'
+
+# Create a todo
+curl -X POST http://localhost:5170/api/todos \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <token>' \
+  -d '{"name":"Buy groceries","priority":"high"}'
+```
+
+## RPC API details
+
 - **Content type:** The oRPC RPC client serializes inputs using its Standard RPC
   JSON serializer. The frontend consumes this through the typed `orpc` TanStack
   Query client. (Direct `curl` with a bare JSON body is **not** supported — use the
-  oRPC client.)
+  REST interface above or the oRPC client.)
 - **Auth:** All `todo.*` procedures require an `Authorization: Bearer <jwt>` header.
   `auth.*` procedures are public.
 

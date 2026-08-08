@@ -42,7 +42,7 @@ export const PageMeta = z.object({
   totalPages: z.number().int().min(0),
 });
 
-const TokenOutput = z.object({
+export const TokenOutput = z.object({
   token: z.string(),
   user: z.object({ id: z.string().uuid(), email: z.string().email() }),
 });
@@ -89,7 +89,7 @@ const UpdateInput = z.object({
  *
  * Routed as GET so the oRPC RPC link streams it over SSE.
  */
-const TodoChangeEventSchema = z.object({
+export const TodoChangeEventSchema = z.object({
   action: z.enum([
     "created",
     "updated",
@@ -101,14 +101,37 @@ const TodoChangeEventSchema = z.object({
   dependsOnId: z.string().uuid().optional(),
 });
 
+export const ListOutput = z.object({
+  items: z.array(TodoSchema),
+  meta: PageMeta,
+});
+
+export const SuccessOutput = z.object({ success: z.boolean() });
+
 export const apiContract = {
   auth: {
     register: oc
+      .route({
+        method: "POST",
+        path: "/auth/register",
+        tags: ["Auth"],
+        summary: "Register a new account",
+        description:
+          "Creates a new user and returns a JWT token for subsequent requests.",
+      })
       .input(
         z.object({ email: z.string().email(), password: z.string().min(8) }),
       )
       .output(TokenOutput),
     login: oc
+      .route({
+        method: "POST",
+        path: "/auth/login",
+        tags: ["Auth"],
+        summary: "Login and receive a JWT",
+        description:
+          "Authenticates a user with email and password, returning a JWT token.",
+      })
       .input(
         z.object({ email: z.string().email(), password: z.string().min(1) }),
       )
@@ -116,34 +139,90 @@ export const apiContract = {
   },
   todo: {
     list: oc
+      .route({
+        method: "GET",
+        path: "/todos",
+        tags: ["Todos"],
+        summary: "List todos with filtering, sorting, and pagination",
+      })
       .input(ListInput)
-      .output(z.object({ items: z.array(TodoSchema), meta: PageMeta })),
-    get: oc.input(z.object({ id: z.string().uuid() })).output(TodoSchema),
-    create: oc.input(CreateInput).output(TodoSchema),
-    update: oc.input(UpdateInput).output(TodoSchema),
-    delete: oc
+      .output(ListOutput),
+    get: oc
+      .route({
+        method: "GET",
+        path: "/todos/{id}",
+        tags: ["Todos"],
+        summary: "Get a single todo by ID",
+      })
       .input(z.object({ id: z.string().uuid() }))
-      .output(z.object({ success: z.boolean() })),
+      .output(TodoSchema),
+    create: oc
+      .route({
+        method: "POST",
+        path: "/todos",
+        tags: ["Todos"],
+        summary: "Create a new todo",
+      })
+      .input(CreateInput)
+      .output(TodoSchema),
+    update: oc
+      .route({
+        method: "PATCH",
+        path: "/todos/{id}",
+        tags: ["Todos"],
+        summary: "Update an existing todo",
+      })
+      .input(UpdateInput)
+      .output(TodoSchema),
+    delete: oc
+      .route({
+        method: "DELETE",
+        path: "/todos/{id}",
+        tags: ["Todos"],
+        summary: "Soft-delete a todo",
+      })
+      .input(z.object({ id: z.string().uuid() }))
+      .output(SuccessOutput),
     addDependency: oc
+      .route({
+        method: "POST",
+        path: "/todos/{taskId}/dependencies/{dependsOnId}",
+        tags: ["Dependencies"],
+        summary: "Add a dependency to a todo",
+      })
       .input(
         z.object({
           taskId: z.string().uuid(),
           dependsOnId: z.string().uuid(),
         }),
       )
-      .output(z.object({ success: z.boolean() })),
+      .output(SuccessOutput),
     removeDependency: oc
+      .route({
+        method: "DELETE",
+        path: "/todos/{taskId}/dependencies/{dependsOnId}",
+        tags: ["Dependencies"],
+        summary: "Remove a dependency from a todo",
+      })
       .input(
         z.object({
           taskId: z.string().uuid(),
           dependsOnId: z.string().uuid(),
         }),
       )
-      .output(z.object({ success: z.boolean() })),
+      .output(SuccessOutput),
     // Real-time subscription: yields a TodoChangeEvent on every todo /
     // todo_dependency mutation. GET + eventIterator → streamed as SSE.
     changed: oc
-      .route({ method: "GET", path: "/todo/changed" })
+      .route({
+        method: "GET",
+        path: "/todos/changed",
+        tags: ["Todos"],
+        summary: "Subscribe to todo change events (SSE stream)",
+        description:
+          "Server-Sent Events stream that emits a notification whenever a " +
+          "todo or todo dependency is created, updated, or deleted.",
+      })
       .output(eventIterator(TodoChangeEventSchema)),
   },
 };
