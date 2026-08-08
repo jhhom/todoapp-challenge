@@ -1,0 +1,43 @@
+# ── Dependencies (installed inside the image, never copy host node_modules) ──
+node_modules
+
+# ── Build artifacts (built inside the image) ───────────────────────────────
+dist
+dist-ssr
+openapi.json
+
+# ── Git ────────────────────────────────────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+
+# ── Secrets — NEVER bake into an image (pass at runtime instead) ───────────
+.env
+.env.*
+.claude.json
+.claude.example.json
+
+# ── Test artifacts ─────────────────────────────────────────────────────────
+test-report
+coverage
+
+# ── Frontend — not needed to build/run the backend ─────────────────────────
+src/web
+index.html
+public
+
+# ── Docs, CI, editor & agent config — irrelevant to the build ──────────────
+docs
+*.md
+.github
+.vscode
+.idea
+.roo
+.agents
+skills-lock.json
+.DS_Store
+
+# ── Docker files themselves ────────────────────────────────────────────────
+Dockerfile
+.dockerignore
+docker-compose*.yml
