@@ -20,6 +20,14 @@ const STATUS_LABELS: Record<string, string> = {
   archived: "Archived",
 };
 
+/** Canonical ordering of statuses shown in pickers. */
+export const STATUSES = [
+  "not_started",
+  "in_progress",
+  "completed",
+  "archived",
+] as const;
+
 export function StatusBadge({ status }: { status: string }) {
   return (
     <Badge
@@ -28,6 +36,48 @@ export function StatusBadge({ status }: { status: string }) {
     >
       {STATUS_LABELS[status] ?? status}
     </Badge>
+  );
+}
+
+/**
+ * Coloured, clickable status "pills". Each status uses a semantic colour
+ * (slate = not started, blue = in progress, green = completed, zinc =
+ * archived); the active status is emphasised with a ring/border.
+ */
+export function StatusPills({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (status: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2" role="group" aria-label="Status">
+      {STATUSES.map((s) => {
+        const active = s === value;
+        return (
+          <button
+            key={s}
+            type="button"
+            disabled={disabled}
+            aria-pressed={active}
+            onClick={() => onChange(s)}
+            className={[
+              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              STATUS_STYLES[s] ?? STATUS_STYLES.not_started,
+              active
+                ? "border-foreground/50 ring-2 ring-foreground/15"
+                : "border-transparent opacity-60 hover:opacity-100",
+              disabled ? "cursor-not-allowed opacity-50" : "",
+            ].join(" ")}
+          >
+            {STATUS_LABELS[s] ?? s}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

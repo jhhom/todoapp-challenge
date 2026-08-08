@@ -17,6 +17,21 @@ import {
 } from "../components/TodoBadges";
 import { clearToken, getUserEmail } from "../lib/auth";
 
+/**
+ * Search-param schema for the workspace (`/`) route.
+ * Mirrors the object returned by `validateSearch` below so callers
+ * (e.g. {@link TodoDetailDrawer}) can type `Link`/`navigate` updates.
+ */
+export type WorkspaceSearch = {
+  page: number;
+  status?: string;
+  priority?: string;
+  blocked?: string;
+  sortBy?: string;
+  sortOrder: "asc" | "desc";
+  todo?: string;
+};
+
 export const Route = createFileRoute("/")({
   component: Workspace,
   validateSearch: (search: Record<string, unknown>) => ({
@@ -33,15 +48,7 @@ export const Route = createFileRoute("/")({
 });
 
 export default function Workspace() {
-  const search = useSearch({ strict: false }) as {
-    page: number;
-    status?: string;
-    priority?: string;
-    blocked?: string;
-    sortBy?: string;
-    sortOrder: "asc" | "desc";
-    todo?: string;
-  };
+  const search = useSearch({ strict: false }) as WorkspaceSearch;
   const navigate = useNavigate();
   // The currently-open task is read from the ?todo= URL param.
   const selectedId = search.todo ?? null;

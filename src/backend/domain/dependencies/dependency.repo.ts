@@ -1,5 +1,6 @@
 import type { Kysely } from "kysely";
 import type { DB } from "../../db.d";
+import type { Status } from "../../lib/state-machine";
 
 export function createDependencyRepo(db: Kysely<DB>) {
   return {
@@ -13,6 +14,20 @@ export function createDependencyRepo(db: Kysely<DB>) {
         map.get(key)!.push(String(r.dependsOnTaskId));
       }
       return map;
+    },
+    /**
+     * Looks up the live status of a (non-deleted) todo. Returns `undefined`
+     * when the task does not exist or has been soft-deleted. Used by the
+     * dependency service to validate state-machine invariants on add.
+     */
+    async findStatus(id: string): Promise<Status | undefined> {
+      const row = await db
+        .selectFrom("todo")
+        .select("status")
+        .where("id", "=", id)
+        .where("isDeleted", "=", false)
+        .executeTakeFirst();
+      return row?.status as Status | undefined;
     },
     async insert(taskId: string, dependsOnTaskId: string) {
       await db

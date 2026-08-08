@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ChevronsUpDownIcon } from "lucide-react";
 import { orpc } from "../client";
-import { AppSelect } from "./AppSelect";
+import { StatusPills } from "./TodoBadges";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import {
@@ -31,6 +31,7 @@ import {
   useUpdateTodo,
 } from "../hooks/todos";
 import { Link } from "@tanstack/react-router";
+import type { WorkspaceSearch } from "../routes/index";
 
 export function TodoDetailDrawer({
   todoId,
@@ -151,13 +152,10 @@ export function TodoDetailDrawer({
         <label className="text-xs uppercase text-muted-foreground">
           Status
         </label>
-        <AppSelect
+        <StatusPills
           value={t.status}
           onChange={(v) => changeStatus(v)}
-          options={["not_started", "in_progress", "completed", "archived"].map(
-            (s) => ({ value: s, label: s }),
-          )}
-          triggerClassName="w-full"
+          disabled={update.isPending}
         />
         {statusErr && <p className="text-xs text-destructive">{statusErr}</p>}
         {t.isBlocked && (
@@ -188,7 +186,7 @@ export function TodoDetailDrawer({
                   {/* Title is a link: clicking opens this dependency in the drawer. */}
                   <Link
                     to="/"
-                    search={(prev) => ({
+                    search={(prev: WorkspaceSearch) => ({
                       ...prev,
                       todo: depId,
                     })}
@@ -293,7 +291,8 @@ export function TodoDetailDrawer({
         )}
         {addDep.isError && (
           <p className="text-xs text-destructive">
-            Could not add dependency (it may create a cycle).
+            {(addDep.error as { message?: string })?.message ??
+              "Could not add dependency (it may create a cycle)."}
           </p>
         )}
       </div>

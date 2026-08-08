@@ -40,7 +40,7 @@ const link = new RPCLink({
           error instanceof DOMException && error.name === "AbortError";
 
         if (!isAbort) {
-          console.error(`❌ [oRPC Error] ${route} (${duration}ms)`, error);
+          console.log(`❌ [oRPC Error] ${route} (${duration}ms)`, error);
         } else {
           console.debug(`⏭️ [oRPC Aborted] ${route} (${duration}ms)`);
         }
@@ -55,7 +55,7 @@ const link = new RPCLink({
       const isAbort =
         error instanceof DOMException && error.name === "AbortError";
       if (!isAbort) {
-        console.error("Global oRPC Error Handler:", error);
+        // console.error("Global oRPC Error Handler:", error);
       }
     }),
   ],

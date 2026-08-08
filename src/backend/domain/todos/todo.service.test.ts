@@ -79,6 +79,55 @@ describe("todoService", () => {
     expect(recompleted.nextOccurrenceId).toBe(firstOccurrence);
   });
 
+  it("allows reversing in_progress/completed directly back to not_started", async () => {
+    const user = await seedUser();
+    const svc = makeService();
+    const created = await svc.create({
+      name: "Task",
+      createdBy: String(user.id),
+      schedule: "none",
+      priority: "medium",
+    });
+    const started = await svc.update(created.id, { status: "in_progress" });
+    const reversed = await svc.update(started.id, { status: "not_started" });
+    expect(reversed.status).toBe("not_started");
+
+    // completed -> not_started should also be a legal, direct reversal.
+    const completed = await svc.update(created.id, { status: "completed" });
+    expect(completed.completedAt).not.toBeNull();
+    const fromCompleted = await svc.update(completed.id, {
+      status: "not_started",
+    });
+    expect(fromCompleted.status).toBe("not_started");
+    // completedAt is retained as history (Q9 behaviour), not cleared.
+    expect(fromCompleted.completedAt).not.toBeNull();
+  });
+
+  it("enables the Q1 workflow: reverse to not_started, then add an incomplete dependency", async () => {
+    const user = await seedUser();
+    const svc = makeService();
+    const parent = await svc.create({
+      name: "Parent",
+      createdBy: String(user.id),
+      schedule: "none",
+      priority: "medium",
+    });
+    const prereq = await svc.create({
+      name: "Prereq",
+      createdBy: String(user.id),
+      schedule: "none",
+      priority: "medium",
+    });
+    // Parent is in_progress; adding the incomplete prereq must be rejected.
+    await svc.update(parent.id, { status: "in_progress" });
+    await expect(svc.addDependency(parent.id, prereq.id)).rejects.toThrow();
+
+    // Reverse parent to not_started, then the incomplete dependency is allowed.
+    await svc.update(parent.id, { status: "not_started" });
+    const result = await svc.addDependency(parent.id, prereq.id);
+    expect(result.success).toBe(true);
+  });
+
   it("blocks moving a blocked task to in_progress", async () => {
     const user = await seedUser();
     const svc = makeService();

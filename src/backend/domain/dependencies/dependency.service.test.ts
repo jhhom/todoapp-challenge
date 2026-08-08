@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { database } from "../../db";
+import type { Status } from "../../lib/state-machine";
 import { createDependencyRepo } from "./dependency.repo";
 import { createDependencyService } from "./dependency.service";
 
@@ -27,6 +28,14 @@ async function seedTodo(userId: string, name: string) {
     .executeTakeFirstOrThrow();
 }
 
+async function setStatus(id: string, status: Status) {
+  await database
+    .updateTable("todo")
+    .set({ status })
+    .where("id", "=", id)
+    .execute();
+}
+
 describe("dependencyService", () => {
   beforeEach(async () => {
     await database.deleteFrom("todoDependency").execute();
@@ -50,6 +59,45 @@ describe("dependencyService", () => {
     const svc = createDependencyService(createDependencyRepo(database));
     await svc.add(String(b.id), String(a.id)); // B depends on A
     await expect(svc.add(String(a.id), String(b.id))).rejects.toThrow();
+  });
+
+  it("allows adding a completed dependency to an in_progress task", async () => {
+    const user = await seedUser();
+    const parent = await seedTodo(String(user.id), "Parent");
+    const dep = await seedTodo(String(user.id), "Dep");
+    await setStatus(String(dep.id), "completed");
+    await setStatus(String(parent.id), "in_progress");
+    const svc = createDependencyService(createDependencyRepo(database));
+    const result = await svc.add(String(parent.id), String(dep.id));
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an incomplete dependency on an in_progress task", async () => {
+    const user = await seedUser();
+    const parent = await seedTodo(String(user.id), "Parent");
+    const dep = await seedTodo(String(user.id), "Dep"); // not_started
+    await setStatus(String(parent.id), "in_progress");
+    const svc = createDependencyService(createDependencyRepo(database));
+    await expect(svc.add(String(parent.id), String(dep.id))).rejects.toThrow();
+  });
+
+  it("rejects an in_progress dependency on a completed task", async () => {
+    const user = await seedUser();
+    const parent = await seedTodo(String(user.id), "Parent");
+    const dep = await seedTodo(String(user.id), "Dep");
+    await setStatus(String(parent.id), "completed");
+    await setStatus(String(dep.id), "in_progress");
+    const svc = createDependencyService(createDependencyRepo(database));
+    await expect(svc.add(String(parent.id), String(dep.id))).rejects.toThrow();
+  });
+
+  it("allows adding any dependency to a not_started task", async () => {
+    const user = await seedUser();
+    const parent = await seedTodo(String(user.id), "Parent");
+    const dep = await seedTodo(String(user.id), "Dep"); // not_started
+    const svc = createDependencyService(createDependencyRepo(database));
+    const result = await svc.add(String(parent.id), String(dep.id));
+    expect(result.success).toBe(true);
   });
 
   it("removes a dependency", async () => {

@@ -30,6 +30,8 @@ Here is how you can document this to show the evaluators that your backend valid
 > 
 > **Trade-off:** This adds slight friction to the UX; if a user genuinely realizes they forgot a prerequisite for a task they already started, they must manually move the task back to "Not Started" before the system will allow them to link the new dependency. However, prioritizing strict data integrity over convenience is the safer architectural choice.
 
+> **Supporting change — direct reversal to "Not Started":** To make the above workflow viable, the state machine (`canTransition`) was extended to allow `in_progress → not_started` and `completed → not_started` directly. Previously the only route back to "Not Started" was via "Archived" (`in_progress/completed → archived → not_started`). `not_started` is not a "blocked" target, so this reversal is always permitted (even while the task is blocked) — demoting a task to the backlog never violates the dependency rule. On a `completed → not_started` reversal, `completedAt` is **retained as history** (consistent with the existing Q9 decision for `completed → in_progress`) and `nextOccurrenceId` is preserved, so re-completion still will not spawn a duplicate occurrence.
+
 
 # 2. What happens if a recurring task depends on another recurring task?
 

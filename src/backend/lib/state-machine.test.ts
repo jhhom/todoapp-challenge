@@ -23,6 +23,16 @@ describe("canTransition", () => {
     // The block rule applies to any move to in_progress, including reversal.
     expect(canTransition("completed", "in_progress", true)).toBe(false);
   });
+  it("allows in_progress -> not_started reversal (unblocked)", () => {
+    expect(canTransition("in_progress", "not_started", false)).toBe(true);
+  });
+  it("allows in_progress -> not_started reversal even when blocked", () => {
+    // Demoting to "not_started" never violates the block rule.
+    expect(canTransition("in_progress", "not_started", true)).toBe(true);
+  });
+  it("allows completed -> not_started reversal (unblocked)", () => {
+    expect(canTransition("completed", "not_started", false)).toBe(true);
+  });
   it("allows in_progress -> completed when unblocked", () => {
     expect(canTransition("in_progress", "completed", false)).toBe(true);
   });

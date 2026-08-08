@@ -9,6 +9,21 @@ export function createDependencyService(repo: DependencyRepo) {
       if (wouldCreateCycle(taskId, dependsOnId, adjacency)) {
         badRequest("Circular dependency detected: this would create a loop");
       }
+
+      // State-machine invariant (decision log Q1):
+      // A task already "in_progress" or "completed" must not acquire an
+      // *incomplete* dependency — doing so would instantly place it in an
+      // illegal state. A "completed" dependency is always safe to add.
+      const taskStatus = await repo.findStatus(taskId);
+      if (taskStatus === "in_progress" || taskStatus === "completed") {
+        const depStatus = await repo.findStatus(dependsOnId);
+        if (depStatus !== "completed") {
+          badRequest(
+            `Cannot add a dependency that is not completed (${depStatus ?? "missing"}) to a task that is already "${taskStatus}". `,
+          );
+        }
+      }
+
       await repo.insert(taskId, dependsOnId);
       return { success: true };
     },
