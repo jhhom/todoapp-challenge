@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { orpc } from "../client";
 import {
@@ -19,13 +19,28 @@ export function TodoDetailDrawer({
   const remove = useDeleteTodo();
   const addDep = useAddDependency();
   const removeDep = useRemoveDependency();
-  const [newDep, setNewDep] = useState("");
+  const [pickedId, setPickedId] = useState("");
   const [statusErr, setStatusErr] = useState("");
 
   const detail = useQuery(
-    orpc.todo.get.queryOptions({
-      input: { id: todoId! },
+    orpc.todo.get.queryOptions({ input: { id: todoId! } }),
+  );
+
+  // Candidate tasks to pick as a dependency (fetched via the TanStack Query client).
+  const candidates = useQuery(
+    orpc.todo.list.queryOptions({
+      input: { page: 1, pageSize: 200, sortOrder: "asc", sortBy: "name" },
     }),
+  );
+
+  // Exclude the current task and already-linked dependencies from the picker.
+  const existing = new Set(detail.data?.dependencies ?? []);
+  const pickable = useMemo(
+    () =>
+      (candidates.data?.items ?? []).filter(
+        (c) => c.id !== todoId && !existing.has(c.id),
+      ),
+    [candidates.data, existing, todoId],
   );
 
   if (!todoId) return null;
@@ -44,6 +59,8 @@ export function TodoDetailDrawer({
     );
 
   const t = detail.data;
+  const byId = new Map((candidates.data?.items ?? []).map((c) => [c.id, c]));
+  const labelFor = (id: string) => byId.get(id)?.name ?? `${id.slice(0, 8)}…`;
 
   const changeStatus = (status: string) => {
     setStatusErr("");
@@ -63,6 +80,24 @@ export function TodoDetailDrawer({
         <button onClick={onClose}>✕</button>
       </div>
       <p className="text-sm text-muted-foreground">{t.description}</p>
+
+      {/* Task ID — shown so it is discoverable (e.g. for linking). */}
+      <div className="space-y-1">
+        <label className="text-xs uppercase text-muted-foreground">
+          Task ID
+        </label>
+        <div className="flex items-center gap-2">
+          <code className="block flex-1 truncate rounded border bg-muted px-2 py-1 text-xs">
+            {t.id}
+          </code>
+          <button
+            className="rounded border px-2 py-1 text-xs"
+            onClick={() => void navigator.clipboard?.writeText(t.id)}
+          >
+            copy
+          </button>
+        </div>
+      </div>
 
       <div className="space-y-1">
         <label className="text-xs uppercase text-muted-foreground">
@@ -87,7 +122,7 @@ export function TodoDetailDrawer({
         )}
         {t.nextOccurrenceId && (
           <p className="text-xs text-muted-foreground">
-            Next occurrence created: {t.nextOccurrenceId.slice(0, 8)}…
+            Next occurrence created: {labelFor(t.nextOccurrenceId)}
           </p>
         )}
       </div>
@@ -102,7 +137,7 @@ export function TodoDetailDrawer({
               key={depId}
               className="flex items-center justify-between rounded border p-2 text-sm"
             >
-              <span className="truncate">{depId}</span>
+              <span className="truncate">{labelFor(depId)}</span>
               <button
                 className="text-destructive"
                 onClick={() =>
@@ -113,24 +148,45 @@ export function TodoDetailDrawer({
               </button>
             </li>
           ))}
+          {t.dependencies.length === 0 && (
+            <li className="text-xs text-muted-foreground">No dependencies.</li>
+          )}
         </ul>
+
+        {/* Pick a dependency by name instead of typing a UUID. */}
         <div className="flex gap-2">
-          <input
+          <select
             className="flex-1 rounded border p-2 text-sm"
-            placeholder="Dependency task UUID"
-            value={newDep}
-            onChange={(e) => setNewDep(e.target.value)}
-          />
+            value={pickedId}
+            onChange={(e) => setPickedId(e.target.value)}
+          >
+            <option value="">Select a task…</option>
+            {pickable.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.status})
+              </option>
+            ))}
+          </select>
           <button
-            className="rounded border px-3 py-1 text-sm"
+            className="rounded border px-3 py-1 text-sm disabled:opacity-40"
+            disabled={!pickedId}
             onClick={() => {
-              addDep.mutate({ taskId: t.id, dependsOnId: newDep });
-              setNewDep("");
+              addDep.mutate(
+                { taskId: t.id, dependsOnId: pickedId },
+                {
+                  onSuccess: () => setPickedId(""),
+                },
+              );
             }}
           >
             Add
           </button>
         </div>
+        {pickable.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            No more tasks available to add (showing up to 200 by name).
+          </p>
+        )}
         {addDep.isError && (
           <p className="text-xs text-destructive">
             Could not add dependency (it may create a cycle).
