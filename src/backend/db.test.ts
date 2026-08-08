@@ -15,7 +15,7 @@ describe("database", () => {
     expect(result.rows).toEqual([{ one: 1 }]);
   });
 
-  it("deletes the todo", async () => {
+  it("soft-deletes a todo", async () => {
     const todoRepo = createTodoRepo(database);
     const dependencyRepo = createDependencyRepo(database);
     const dependencyService = createDependencyService(dependencyRepo);
@@ -26,9 +26,27 @@ describe("database", () => {
       userRepo,
     });
 
-    const result = await todoService.softDelete(
-      "7ac744e5-2e13-4afa-91f0-7d7137e80b04",
-    );
-    console.log(result);
+    // Self-contained: create a user + todo, then delete it. No reliance on
+    // seeded data or hardcoded IDs.
+    const user = await database
+      .insertInto("appUser")
+      .values({
+        email: `del-${Date.now()}-${Math.random()}@x.com`,
+        passwordHash: "x",
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    const created = await todoService.create({
+      name: "To be deleted",
+      createdBy: String(user.id),
+      schedule: "none",
+      priority: "medium",
+    });
+
+    const result = await todoService.softDelete(created.id);
+    expect(result).toEqual({ success: true });
+
+    const refetched = await todoRepo.findById(created.id);
+    expect(refetched?.isDeleted).toBe(true);
   });
 });
