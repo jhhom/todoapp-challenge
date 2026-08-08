@@ -1,36 +1,29 @@
-import * as React from "react";
-import { Link, Outlet, createRootRoute } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import {
+  createRootRoute,
+  Outlet,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router";
+import { useEffect } from "react";
+import { getToken } from "../lib/auth";
 
 export const Route = createRootRoute({
   component: RootComponent,
 });
 
 function RootComponent() {
-  return (
-    <>
-      <div className="p-2 flex gap-2 text-lg">
-        <Link
-          to="/"
-          activeProps={{
-            className: "font-bold",
-          }}
-          activeOptions={{ exact: true }}
-        >
-          Home
-        </Link>{" "}
-        <Link
-          to="/about"
-          activeProps={{
-            className: "font-bold",
-          }}
-        >
-          About
-        </Link>
-      </div>
-      <hr />
-      <Outlet />
-      <TanStackRouterDevtools position="bottom-right" />
-    </>
-  );
+  const router = useRouter();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  useEffect(() => {
+    const isAuthRoute = pathname === "/login" || pathname === "/register";
+    const hasToken = !!getToken();
+    if (!hasToken && !isAuthRoute) {
+      router.navigate({ to: "/login" });
+    } else if (hasToken && isAuthRoute) {
+      router.navigate({ to: "/" });
+    }
+  }, [pathname, router]);
+
+  return <Outlet />;
 }

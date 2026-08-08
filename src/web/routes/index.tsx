@@ -1,110 +1,123 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  useNavigate,
+  useSearch,
+} from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { useTodoList } from "../hooks/todos";
+import { TodoFilters, type FilterState } from "../components/TodoFilters";
+import { Pagination } from "../components/Pagination";
+import { TodoForm } from "../components/TodoForm";
+import { TodoDetailDrawer } from "../components/TodoDetailDrawer";
+import { clearToken } from "../lib/auth";
 
 export const Route = createFileRoute("/")({
-  component: HomeComponent,
+  component: Workspace,
+  validateSearch: (search: Record<string, unknown>) => ({
+    page: Number(search.page ?? 1) || 1,
+    status: (search.status as string) || undefined,
+    priority: (search.priority as string) || undefined,
+    blocked: (search.blocked as string) || undefined,
+    sortBy: (search.sortBy as string) || undefined,
+    sortOrder: (search.sortOrder as "asc" | "desc") || "asc",
+  }),
 });
 
-const NAV_LINKS = ["Features", "Solutions", "Pricing", "Docs"] as const;
+export default function Workspace() {
+  const search = useSearch({ strict: false }) as {
+    page: number;
+    status?: string;
+    priority?: string;
+    blocked?: string;
+    sortBy?: string;
+    sortOrder: "asc" | "desc";
+  };
+  const navigate = useNavigate();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-function Navbar() {
+  const input = useMemo(() => ({ pageSize: 50, ...search }), [search]);
+
+  const { data, isLoading, error } = useTodoList(input);
+
+  const setParam = (next: Record<string, unknown>) =>
+    navigate({ to: "/", search: { ...search, ...next } });
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link to="/" className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-            S
-          </span>
-          <span className="text-lg font-semibold tracking-tight">
-            SleekFlow
-          </span>
-        </Link>
+    <div className="mx-auto max-w-5xl space-y-4 p-4">
+      <header className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">TODO Workspace</h1>
+        <button
+          className="rounded border px-3 py-1 text-sm"
+          onClick={() => {
+            clearToken();
+            navigate({ to: "/login" });
+          }}
+        >
+          Log out
+        </button>
+      </header>
 
-        <nav className="hidden items-center gap-8 md:flex">
-          {NAV_LINKS.map((label) => (
-            <a
-              key={label}
-              href="#"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+      <TodoFilters
+        value={{
+          status: search.status,
+          priority: search.priority,
+          blocked: search.blocked,
+          sortBy: search.sortBy,
+          sortOrder: search.sortOrder ?? "asc",
+        }}
+        onChange={(f: FilterState) => setParam({ ...f, page: 1 })}
+      />
+
+      <TodoForm />
+
+      {isLoading && <p className="text-muted-foreground">Loading…</p>}
+      {error && (
+        <p className="text-destructive">
+          Failed to load tasks. You may need to log in again.
+        </p>
+      )}
+
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b text-left">
+            <th className="p-2">Name</th>
+            <th className="p-2">Status</th>
+            <th className="p-2">Priority</th>
+            <th className="p-2">Due</th>
+            <th className="p-2">Recurs</th>
+            <th className="p-2">Blocked</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data?.items.map((t) => (
+            <tr
+              key={t.id}
+              className="cursor-pointer border-b hover:bg-muted/50"
+              onClick={() => setSelectedId(t.id)}
             >
-              {label}
-            </a>
+              <td className="p-2">{t.name}</td>
+              <td className="p-2">{t.status}</td>
+              <td className="p-2">{t.priority}</td>
+              <td className="p-2">
+                {t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "—"}
+              </td>
+              <td className="p-2">{t.schedule}</td>
+              <td className="p-2">{t.isBlocked ? "yes" : "no"}</td>
+            </tr>
           ))}
-        </nav>
+        </tbody>
+      </table>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          <a
-            href="#"
-            className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:block"
-          >
-            Sign in
-          </a>
-          <button
-            type="button"
-            className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-          >
-            Get Started
-          </button>
-        </div>
-      </div>
-    </header>
-  );
-}
+      <Pagination
+        page={data?.meta.page ?? 1}
+        totalPages={data?.meta.totalPages ?? 0}
+        onChange={(page) => setParam({ page })}
+      />
 
-function Hero() {
-  return (
-    <section className="relative overflow-hidden">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10"
-      >
-        <div className="absolute left-1/2 top-0 h-[400px] w-[600px] -translate-x-1/2 rounded-full bg-muted opacity-60 blur-3xl" />
-      </div>
-
-      <div className="mx-auto flex max-w-3xl flex-col items-center px-4 py-24 text-center sm:py-32">
-        <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
-          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-          Now in public beta
-        </span>
-
-        <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-6xl">
-          Conversations that move your business forward
-        </h1>
-
-        <p className="mt-6 max-w-xl text-pretty text-lg text-muted-foreground">
-          Unify every messaging channel into a single inbox. Engage customers,
-          automate workflows, and grow faster with SleekFlow.
-        </p>
-
-        <div className="mt-10 flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
-          <button
-            type="button"
-            className="inline-flex h-11 w-full items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 sm:w-auto"
-          >
-            Start for free
-          </button>
-          <button
-            type="button"
-            className="inline-flex h-11 w-full items-center justify-center rounded-md border border-border bg-background px-6 text-sm font-medium text-foreground transition-colors hover:bg-accent sm:w-auto"
-          >
-            Book a demo
-          </button>
-        </div>
-
-        <p className="mt-6 text-xs text-muted-foreground">
-          No credit card required · Free 14-day trial
-        </p>
-      </div>
-    </section>
-  );
-}
-
-function HomeComponent() {
-  return (
-    <div className="min-h-screen">
-      <Navbar />
-      <main>
-        <Hero />
-      </main>
+      <TodoDetailDrawer
+        todoId={selectedId}
+        onClose={() => setSelectedId(null)}
+      />
     </div>
   );
 }

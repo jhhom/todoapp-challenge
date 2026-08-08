@@ -1,22 +1,21 @@
-import { useEffect } from "react";
 import { routeTree } from "./routeTree.gen";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./App.css";
 
-// Set up a Router instance
 const router = createRouter({
   routeTree,
   defaultPreload: "intent",
   scrollRestoration: true,
 });
 
-function App() {
-  useEffect(() => {}, []);
+const queryClient = new QueryClient();
 
+function App() {
   return (
-    <>
+    <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
-    </>
+    </QueryClientProvider>
   );
 }
 
