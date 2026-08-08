@@ -17,7 +17,13 @@ const link = new RPCLink({
       // In oRPC, path is typically an array of strings (e.g., ['todo', 'list'])
       const route = Array.isArray(path) ? path.join(".") : String(path);
 
-      console.log(`🚀 [oRPC Request] ${route}`, input ?? "<no input>");
+      // `todo.changed` is a long-lived, high-frequency SSE stream — skip the
+      // per-call request/response logging so the console isn't flooded.
+      const isQuiet = route === "todo.changed";
+
+      if (!isQuiet) {
+        console.log(`🚀 [oRPC Request] ${route}`, input ?? "<no input>");
+      }
       const start = performance.now();
 
       try {
@@ -25,7 +31,9 @@ const link = new RPCLink({
         const response = await next();
         const duration = (performance.now() - start).toFixed(2);
 
-        console.log(`✅ [oRPC Response] ${route} (${duration}ms)`, response);
+        if (!isQuiet) {
+          console.log(`✅ [oRPC Response] ${route} (${duration}ms)`, response);
+        }
 
         // You MUST return the response so the calling code receives the data!
         return response;
@@ -39,7 +47,7 @@ const link = new RPCLink({
         const isAbort =
           error instanceof DOMException && error.name === "AbortError";
 
-        if (!isAbort) {
+        if (!isAbort && !isQuiet) {
           console.log(`❌ [oRPC Error] ${route} (${duration}ms)`, error);
         } else {
           console.debug(`⏭️ [oRPC Aborted] ${route} (${duration}ms)`);

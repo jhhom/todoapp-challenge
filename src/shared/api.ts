@@ -1,4 +1,4 @@
-import { oc } from "@orpc/contract";
+import { oc, eventIterator } from "@orpc/contract";
 import { z } from "zod";
 
 export const StatusEnum = z.enum([
@@ -83,6 +83,24 @@ const UpdateInput = z.object({
   customIntervalDays: z.number().int().positive().nullable().optional(),
 });
 
+/**
+ * One notification yielded by the `todo.changed` subscription whenever a
+ * `todo` or `todo_dependency` row is mutated through the API.
+ *
+ * Routed as GET so the oRPC RPC link streams it over SSE.
+ */
+const TodoChangeEventSchema = z.object({
+  action: z.enum([
+    "created",
+    "updated",
+    "deleted",
+    "dependency.added",
+    "dependency.removed",
+  ]),
+  todoId: z.string().uuid(),
+  dependsOnId: z.string().uuid().optional(),
+});
+
 export const apiContract = {
   auth: {
     register: oc
@@ -122,5 +140,10 @@ export const apiContract = {
         }),
       )
       .output(z.object({ success: z.boolean() })),
+    // Real-time subscription: yields a TodoChangeEvent on every todo /
+    // todo_dependency mutation. GET + eventIterator → streamed as SSE.
+    changed: oc
+      .route({ method: "GET", path: "/todo/changed" })
+      .output(eventIterator(TodoChangeEventSchema)),
   },
 };

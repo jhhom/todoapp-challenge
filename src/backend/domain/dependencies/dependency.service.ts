@@ -1,8 +1,12 @@
 import { wouldCreateCycle } from "../../lib/cycle-detection";
 import { badRequest } from "../../lib/errors";
+import type { PublishTodoChange } from "../../lib/events";
 import type { DependencyRepo } from "./dependency.repo";
 
-export function createDependencyService(repo: DependencyRepo) {
+export function createDependencyService(
+  repo: DependencyRepo,
+  publish: PublishTodoChange = () => {},
+) {
   return {
     async add(taskId: string, dependsOnId: string) {
       const adjacency = await repo.adjacency();
@@ -25,10 +29,12 @@ export function createDependencyService(repo: DependencyRepo) {
       }
 
       await repo.insert(taskId, dependsOnId);
+      publish({ action: "dependency.added", todoId: taskId, dependsOnId });
       return { success: true };
     },
     async remove(taskId: string, dependsOnId: string) {
       await repo.remove(taskId, dependsOnId);
+      publish({ action: "dependency.removed", todoId: taskId, dependsOnId });
       return { success: true };
     },
   };

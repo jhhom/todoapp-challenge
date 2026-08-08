@@ -5,7 +5,7 @@ import {
 } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { useMemo } from "react";
-import { useTodoList } from "../hooks/todos";
+import { useTodoChanges, useTodoList } from "../hooks/todos";
 import { TodoFilters, type FilterState } from "../components/TodoFilters";
 import { Pagination } from "../components/Pagination";
 import { TodoForm } from "../components/TodoForm";
@@ -52,6 +52,11 @@ export default function Workspace() {
   const navigate = useNavigate();
   // The currently-open task is read from the ?todo= URL param.
   const selectedId = search.todo ?? null;
+
+  // Live updates: subscribe to backend `todo.changed` notifications and refetch
+  // the list (+ the open todo's detail) whenever anything mutates. Hosted here
+  // so the list stays fresh even when the detail drawer is closed.
+  useTodoChanges(selectedId);
 
   // Only include actual filter/pagination fields in the query input.
   // Excluding `todo` (the open-drawer ID) prevents a refetch + abort

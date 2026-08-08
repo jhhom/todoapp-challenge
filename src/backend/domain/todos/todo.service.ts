@@ -2,6 +2,7 @@ import { canTransition } from "../../lib/state-machine";
 import type { Status } from "../../lib/state-machine";
 import { computeNextDueDate } from "../../lib/recurrence";
 import { badRequest, notFound } from "../../lib/errors";
+import type { PublishTodoChange } from "../../lib/events";
 import type { TodoRepo, TodoRow } from "./todo.repo";
 import type { DependencyService } from "../dependencies/dependency.service";
 import type { UserRepo } from "../auth/auth.repo";
@@ -26,8 +27,9 @@ export function createTodoService(deps: {
   todoRepo: TodoRepo;
   dependencyService: DependencyService;
   userRepo: UserRepo;
+  publish?: PublishTodoChange;
 }) {
-  const { todoRepo, dependencyService, userRepo } = deps;
+  const { todoRepo, dependencyService, userRepo, publish = () => {} } = deps;
 
   async function toDto(todo: TodoRow) {
     const creator = await userRepo.findById(String(todo.createdBy));
@@ -112,6 +114,7 @@ export function createTodoService(deps: {
       for (const depId of input.dependencyIds ?? []) {
         await dependencyService.add(String(todo.id), depId);
       }
+      publish({ action: "created", todoId: String(todo.id) });
       return toDto(todo);
     },
 
@@ -171,6 +174,8 @@ export function createTodoService(deps: {
             createdBy: todo.createdBy,
           });
           updates.nextOccurrenceId = clone.id;
+          // The recurring clone is a new todo the UI should learn about.
+          publish({ action: "created", todoId: String(clone.id) });
           // Copy only recurring dependencies (Q3); non-recurring deps are referenced,
           // not cloned.
           const depIds = await todoRepo.dependenciesOf(id);
@@ -188,6 +193,7 @@ export function createTodoService(deps: {
       if (patch.status !== undefined) updates.status = patch.status;
 
       const updated = await todoRepo.update(id, updates);
+      publish({ action: "updated", todoId: String(updated.id) });
       return toDto(updated);
     },
 
@@ -195,6 +201,7 @@ export function createTodoService(deps: {
       const todo = await todoRepo.findById(id);
       if (!todo || todo.isDeleted) notFound("Todo not found");
       await todoRepo.softDelete(id);
+      publish({ action: "deleted", todoId: id });
       return { success: true };
     },
 
