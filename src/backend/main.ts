@@ -3,10 +3,11 @@ import cors from "cors";
 import { RPCHandler } from "@orpc/server/node";
 import { onError } from "@orpc/server";
 import { router } from "./router";
+import { database } from "./db";
 
 const app = express();
-
 app.use(cors());
+app.use(express.json());
 
 const handler = new RPCHandler(router, {
   interceptors: [
@@ -19,13 +20,9 @@ const handler = new RPCHandler(router, {
 app.use("/rpc{/*path}", async (req, res, next) => {
   const { matched } = await handler.handle(req, res, {
     prefix: "/rpc",
-    context: {},
+    context: { db: database, headers: req.headers },
   });
-
-  if (matched) {
-    return;
-  }
-
+  if (matched) return;
   next();
 });
 
