@@ -1,7 +1,20 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { ChevronsUpDownIcon } from "lucide-react";
 import { orpc } from "../client";
 import { AppSelect } from "./AppSelect";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "./ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import {
   useAddDependency,
@@ -22,6 +35,7 @@ export function TodoDetailDrawer({
   const addDep = useAddDependency();
   const removeDep = useRemoveDependency();
   const [pickedId, setPickedId] = useState("");
+  const [depOpen, setDepOpen] = useState(false);
   const [statusErr, setStatusErr] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -49,13 +63,13 @@ export function TodoDetailDrawer({
   if (!todoId) return null;
   if (detail.isLoading)
     return (
-      <div className="fixed right-0 top-0 h-full w-96 border-l bg-background p-4">
+      <div className="fixed right-0 top-0 h-full w-[26rem] border-l bg-background p-4">
         Loading…
       </div>
     );
   if (detail.isError || !detail.data)
     return (
-      <div className="fixed right-0 top-0 h-full w-96 border-l bg-background p-4">
+      <div className="fixed right-0 top-0 h-full w-[26rem] border-l bg-background p-4">
         <button onClick={onClose}>✕</button>
         <p className="mt-4 text-destructive">Could not load task.</p>
       </div>
@@ -76,8 +90,10 @@ export function TodoDetailDrawer({
     });
   };
 
+  const picked = pickedId ? byId.get(pickedId) : undefined;
+
   return (
-    <div className="fixed right-0 top-0 h-full w-96 space-y-3 overflow-auto border-l bg-background p-4">
+    <div className="fixed right-0 top-0 h-full w-[26rem] space-y-3 overflow-auto border-l bg-background p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">{t.name}</h2>
         <button onClick={onClose}>✕</button>
@@ -143,43 +159,92 @@ export function TodoDetailDrawer({
           Dependencies
         </label>
         <ul className="space-y-1">
-          {t.dependencies.map((depId) => (
-            <li
-              key={depId}
-              className="flex items-center justify-between rounded border p-2 text-sm"
-            >
-              <span className="truncate">{labelFor(depId)}</span>
-              <button
-                className="text-destructive"
-                onClick={() =>
-                  removeDep.mutate({ taskId: t.id, dependsOnId: depId })
-                }
+          {t.dependencies.map((depId) => {
+            const dep = byId.get(depId);
+            return (
+              <li
+                key={depId}
+                className="flex items-center justify-between gap-2 rounded border p-2 text-sm"
               >
-                remove
-              </button>
-            </li>
-          ))}
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="truncate">{labelFor(depId)}</span>
+                  {dep?.createdAt && (
+                    <Badge
+                      variant="secondary"
+                      className="shrink-0 font-normal tabular-nums"
+                    >
+                      {format(new Date(dep.createdAt), "yyyy-MM-dd HH:mm:ss")}
+                    </Badge>
+                  )}
+                </div>
+                <button
+                  className="text-destructive"
+                  onClick={() =>
+                    removeDep.mutate({ taskId: t.id, dependsOnId: depId })
+                  }
+                >
+                  remove
+                </button>
+              </li>
+            );
+          })}
           {t.dependencies.length === 0 && (
             <li className="text-xs text-muted-foreground">No dependencies.</li>
           )}
         </ul>
 
-        {/* Pick a dependency by name instead of typing a UUID. */}
+        {/* Pick a dependency by name with a searchable combobox. */}
         <div className="flex gap-2">
-          <AppSelect
-            value={pickedId}
-            onChange={setPickedId}
-            options={[
-              { value: "", label: "Select a task…" },
-              ...pickable.map((c) => ({
-                value: c.id,
-                label: `${c.name} (${c.status})`,
-              })),
-            ]}
-            triggerClassName="flex-1"
-          />
-          <button
-            className="rounded border px-3 py-1 text-sm disabled:opacity-40"
+          <Popover open={depOpen} onOpenChange={setDepOpen}>
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="outline"
+                  className="h-auto min-h-8 flex-1 justify-between py-1.5 text-left font-normal"
+                />
+              }
+            >
+              <span className="min-w-0 break-words">
+                {picked ? (
+                  <>
+                    {picked.name}{" "}
+                    <span className="text-muted-foreground">
+                      ({picked.status})
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">Select a task…</span>
+                )}
+              </span>
+              <ChevronsUpDownIcon data-icon="inline-end" />
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search tasks…" />
+                <CommandList>
+                  <CommandEmpty>No tasks found.</CommandEmpty>
+                  <CommandGroup>
+                    {pickable.map((c) => (
+                      <CommandItem
+                        key={c.id}
+                        value={`${c.name} ${c.status}`}
+                        onSelect={() => {
+                          setPickedId(c.id);
+                          setDepOpen(false);
+                        }}
+                      >
+                        {c.name}
+                        <span className="text-muted-foreground">
+                          ({c.status})
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          <Button
             disabled={!pickedId}
             onClick={() => {
               addDep.mutate(
@@ -191,7 +256,7 @@ export function TodoDetailDrawer({
             }}
           >
             Add
-          </button>
+          </Button>
         </div>
         {pickable.length === 0 && (
           <p className="text-xs text-muted-foreground">

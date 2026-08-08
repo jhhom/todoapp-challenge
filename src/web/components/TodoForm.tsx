@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useCreateTodo } from "../hooks/todos";
 import { AppSelect, type SelectOption } from "./AppSelect";
+import { Button } from "./ui/button";
+import { Field, FieldGroup, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
+import { Textarea } from "./ui/textarea";
 
 const STATUSES: SelectOption[] = [
   { value: "not_started", label: "not_started" },
@@ -64,76 +68,94 @@ export function TodoForm() {
 
   return (
     <div>
-      <button
-        className="rounded bg-primary px-4 py-2 text-primary-foreground"
-        onClick={() => setOpen((o) => !o)}
-      >
+      <Button variant="default" onClick={() => setOpen((o) => !o)}>
         New task
-      </button>
+      </Button>
       {open && (
-        <form
-          onSubmit={submit}
-          className="mt-3 grid grid-cols-2 gap-2 rounded border p-3"
-        >
-          <input
-            className="col-span-2 rounded border p-2"
-            placeholder="Name"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            required
-          />
-          <textarea
-            className="col-span-2 rounded border p-2"
-            placeholder="Description"
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
-          <input
-            className="rounded border p-2"
-            type="datetime-local"
-            value={form.dueDate}
-            onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-          />
-          <AppSelect
-            value={form.status}
-            onChange={(v) => setForm({ ...form, status: v })}
-            options={STATUSES}
-            triggerClassName="w-full"
-          />
-          <AppSelect
-            value={form.priority}
-            onChange={(v) => setForm({ ...form, priority: v })}
-            options={PRIORITIES}
-            triggerClassName="w-full"
-          />
-          <AppSelect
-            value={form.schedule}
-            onChange={(v) => setForm({ ...form, schedule: v })}
-            options={SCHEDULES}
-            triggerClassName="w-full"
-          />
-          {form.schedule === "custom" && (
-            <input
-              className="rounded border p-2"
-              type="number"
-              placeholder="interval (days)"
-              value={form.customIntervalDays}
-              onChange={(e) =>
-                setForm({ ...form, customIntervalDays: e.target.value })
-              }
-            />
-          )}
-          {create.isError && (
-            <p className="col-span-2 text-sm text-destructive">
-              Failed to create task.
-            </p>
-          )}
-          <button
-            className="col-span-2 rounded bg-primary px-3 py-2 text-primary-foreground"
-            type="submit"
-          >
-            Create
-          </button>
+        <form onSubmit={submit} className="mt-3 rounded-lg border p-3">
+          <FieldGroup className="grid grid-cols-2 gap-4">
+            <Field className="col-span-2">
+              <FieldLabel htmlFor="tf-name">Name</FieldLabel>
+              <Input
+                id="tf-name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required
+              />
+            </Field>
+            <Field className="col-span-2">
+              <FieldLabel htmlFor="tf-description">Description</FieldLabel>
+              <Textarea
+                id="tf-description"
+                value={form.description}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="tf-due">Due date</FieldLabel>
+              <Input
+                id="tf-due"
+                type="datetime-local"
+                value={form.dueDate}
+                onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="tf-status">Status</FieldLabel>
+              <AppSelect
+                id="tf-status"
+                value={form.status}
+                onChange={(v) => setForm({ ...form, status: v })}
+                options={STATUSES}
+                triggerClassName="w-full"
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="tf-priority">Priority</FieldLabel>
+              <AppSelect
+                id="tf-priority"
+                value={form.priority}
+                onChange={(v) => setForm({ ...form, priority: v })}
+                options={PRIORITIES}
+                triggerClassName="w-full"
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="tf-schedule">Schedule</FieldLabel>
+              <AppSelect
+                id="tf-schedule"
+                value={form.schedule}
+                onChange={(v) => setForm({ ...form, schedule: v })}
+                options={SCHEDULES}
+                triggerClassName="w-full"
+              />
+            </Field>
+            {form.schedule === "custom" && (
+              <Field className="col-span-2">
+                <FieldLabel htmlFor="tf-interval">Interval (days)</FieldLabel>
+                <Input
+                  id="tf-interval"
+                  type="number"
+                  min={1}
+                  placeholder="e.g. 7"
+                  value={form.customIntervalDays}
+                  onChange={(e) =>
+                    setForm({ ...form, customIntervalDays: e.target.value })
+                  }
+                />
+              </Field>
+            )}
+            {create.isError && (
+              <p className="col-span-2 text-sm text-destructive">
+                Failed to create task.
+              </p>
+            )}
+            <Button className="col-span-2" type="submit">
+              Create
+            </Button>
+          </FieldGroup>
         </form>
       )}
     </div>

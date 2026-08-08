@@ -20,6 +20,7 @@ export function AppSelect({
   placeholder,
   className,
   triggerClassName,
+  id,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -27,6 +28,7 @@ export function AppSelect({
   placeholder?: string;
   className?: string;
   triggerClassName?: string;
+  id?: string;
 }) {
   const items: Record<string, string> = {};
   for (const o of options) items[o.value] = o.label;
@@ -37,7 +39,7 @@ export function AppSelect({
       onValueChange={(v) => onChange(v ?? "")}
       items={items}
     >
-      <SelectTrigger className={triggerClassName}>
+      <SelectTrigger id={id} className={triggerClassName}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent className={className}>

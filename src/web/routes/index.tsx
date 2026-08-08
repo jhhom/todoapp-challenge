@@ -3,6 +3,7 @@ import {
   useNavigate,
   useSearch,
 } from "@tanstack/react-router";
+import { format } from "date-fns";
 import { useMemo, useState } from "react";
 import { useTodoList } from "../hooks/todos";
 import { TodoFilters, type FilterState } from "../components/TodoFilters";
@@ -86,6 +87,7 @@ export default function Workspace() {
             <th className="p-2">Due</th>
             <th className="p-2">Recurs</th>
             <th className="p-2">Blocked</th>
+            <th className="p-2">Created At</th>
           </tr>
         </thead>
         <tbody>
@@ -103,6 +105,9 @@ export default function Workspace() {
               </td>
               <td className="p-2">{t.schedule}</td>
               <td className="p-2">{t.isBlocked ? "yes" : "no"}</td>
+              <td className="p-2 whitespace-nowrap">
+                {format(new Date(t.createdAt), "yyyy-MM-dd HH:mm:ss")}
+              </td>
             </tr>
           ))}
         </tbody>
