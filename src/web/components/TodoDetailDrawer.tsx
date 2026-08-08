@@ -32,7 +32,7 @@ export function TodoDetailDrawer({
   // Candidate tasks to pick as a dependency (fetched via the TanStack Query client).
   const candidates = useQuery(
     orpc.todo.list.queryOptions({
-      input: { page: 1, pageSize: 200, sortOrder: "asc", sortBy: "name" },
+      input: { page: 1, pageSize: 100, sortOrder: "asc", sortBy: "name" },
     }),
   );
 
@@ -195,7 +195,7 @@ export function TodoDetailDrawer({
         </div>
         {pickable.length === 0 && (
           <p className="text-xs text-muted-foreground">
-            No more tasks available to add (showing up to 200 by name).
+            No more tasks available to add (showing up to 100 by name).
           </p>
         )}
         {addDep.isError && (
