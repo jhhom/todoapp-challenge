@@ -6,24 +6,31 @@ Based on the project requirements, the following features and capabilities were 
 
 **Core Features**
 
-- **TODO Management:** Full CRUD capabilities with all required fields: Unique ID, Name, Description, Due Date, Status (Not Started, In Progress, Completed, Archived), and Priority.
-- **Recurring Tasks:** Supported schedules for daily, weekly, monthly, and custom day-intervals. The next occurrence is automatically generated when a recurring task is completed.
-- **Task Dependencies:** Users can link prerequisite tasks. The system strictly prevents a dependent task from being moved to "In Progress" or "Completed" until all of its dependencies are "Completed." Circular dependencies are actively blocked by the backend using a Depth-First Search (DFS) algorithm.
-- **Filtering and Sorting:** Included server-side filtering by status, priority, due date, and dependency status (blocked/unblocked), alongside sorting by due date, priority, status, and name.
-- **Web UI:** A functional React-based interface allowing users to manage tasks, manage dependencies, and apply filters/sorts interactively.
+| Feature | Description |
+|---------|-------------|
+| **TODO Management** | Full CRUD capabilities with all required fields: Unique ID, Name, Description, Due Date, Status (Not Started, In Progress, Completed, Archived), and Priority. |
+| **Recurring Tasks** | Supported schedules for daily, weekly, monthly, and custom day-intervals. The next occurrence is automatically generated when a recurring task is completed. |
+| **Task Dependencies** | Users can link prerequisite tasks. The system strictly prevents a dependent task from being moved to "In Progress" or "Completed" until all of its dependencies are "Completed." Circular dependencies are actively blocked by the backend using a Depth-First Search (DFS) algorithm. |
+| **Filtering and Sorting** | Included server-side filtering by status, priority, due date, and dependency status (blocked/unblocked), alongside sorting by due date, priority, status, and name. |
+| **Web UI** | A functional React-based interface allowing users to manage tasks, manage dependencies, and apply filters/sorts interactively. |
 
 **Non-Functional Requirements**
 
-- **Concurrent Access:** Built to support multiple users working on the same list concurrently via a shared workspace model.
-- **Data Retention:** Implemented soft-deletion (using an `is_deleted` flag) so that deleted TODOs are never permanently lost.
-- **Performance at Scale (10,000+ items):** Supported large lists without UI degradation by implementing robust database indexing and server-side pagination (maintaining ~6–67ms per page response times).
+| Feature | Description |
+|---------|-------------|
+| **Concurrent Access** | Built to support multiple users working on the same list concurrently via a shared workspace model. |
+| **Data Retention** | Implemented soft-deletion (using an `is_deleted` flag) so that deleted TODOs are never permanently lost. |
+| **Performance at Scale (10,000+ items)** | Supported large lists without UI degradation by implementing robust database indexing and server-side pagination (maintaining ~6–67ms per page response times). |
 
 **Nice-to-Have Features (Optional)**
 
-- **User Authentication:** Implemented secure JWT-based registration and login, anchoring the shared team workspace model.
-- **DevOps (Docker & CI):** Partially implemented. Docker for the backend is configured (usage guide in `docs/docker.md`). Continuous Integration (CI) is implemented with two workflows: a manually dispatched workflow that generates a unit test report on GitHub Pages, and an automated unit test workflow for any PR to the `main` branch. Continuous Deployment (CD) was not implemented as the application is not hosted remotely.
-- **Architecture Diagram:** Available in the repository's documentation outlining the full tech stack (React, oRPC, Express, PostgreSQL).
-- **Other Technical Improvements:** Introduced oRPC for end-to-end type safety between frontend and backend, avoiding manual DTOs. Abstracted pure domain logic (recurrence math, dependency graph validation) for high unit-test coverage.
+| Feature | Description |
+|---------|-------------|
+| **User Authentication** | Implemented secure JWT-based registration and login, anchoring the shared team workspace model. |
+| **DevOps (Docker & CI)** | Partially implemented. Docker for the backend is configured (usage guide in `docs/docker.md`). Continuous Integration (CI) is implemented with two workflows: a manually dispatched workflow that generates a unit test report on GitHub Pages, and an automated unit test workflow for any PR to the `main` branch. Continuous Deployment (CD) was not implemented as the application is not hosted remotely. |
+| **Real-time updates** | Any changes to the list of todos or any todo statuses will be reflected automatically in real-time to other users who are viewing the same todo list across browser tabs or users. |
+| **Architecture Diagram** | Available in the repository's documentation outlining the full tech stack (React, oRPC, Express, PostgreSQL). |
+| **Other Technical Improvements** | Introduced oRPC for end-to-end type safety between frontend and backend, avoiding manual DTOs. Abstracted pure domain logic (recurrence math, dependency graph validation) for high unit-test coverage. |
 
 ## 1. How ambiguous or underspecified requirements were interpreted
 

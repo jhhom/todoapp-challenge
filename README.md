@@ -1,4 +1,4 @@
-# SleekFlow TODO — Collaborative Workspace
+# TODO Application — Collaborative Workspace
 
 A collaborative TODO web application (backend API + functional web UI) where
 authenticated users share a single global workspace of tasks. It supports
@@ -15,7 +15,7 @@ server-side pagination engineered for 10,000+ items.
 ## Prerequisites
 
 - Node.js 20+, pnpm
-- PostgreSQL 14+ running locally with a `sleekflow` database
+- PostgreSQL 14+ running locally with a `todoapp` database
 
 ## Setup
 
@@ -24,11 +24,11 @@ server-side pagination engineered for 10,000+ items.
 pnpm install
 
 # 2. Configure environment (already present in .env; adjust if needed)
-#    DATABASE_URL=postgres://<user>@localhost:5432/sleekflow
+#    DATABASE_URL=postgres://<user>@localhost:5432/todoapp
 #    JWT_SECRET=<any 32+ char string>
 
 # 3. Create the database (if it doesn't exist)
-createdb sleekflow
+createdb todoapp
 
 # 4. Apply the schema
 psql "$DATABASE_URL" -f src/backend/create-tables.sql
@@ -70,7 +70,47 @@ Integration tests run against the configured PostgreSQL database; vitest is
 configured to run files serially (`vite.config.ts` → `test.fileParallelism`)
 so concurrent files don't clobber shared test data.
 
-## Features
+## Deliverables
+
+| Deliverable | Description |
+|-------------|-------------|
+| README with instructions for setup and local development | Instructions for setup/dev is given in this README |
+| API documentation | [openapi.json](/openapi.json) |
+| Decision log | The compiled decision logs is in [Decision Log](/decision-log.md). More detailed discussions behind each decision is also available under the `decision-logs` folder in this repository, where some of the discussions come from our discussions/answers from AI that has context into the project's requirements and our existing decisions. |
+
+## Implemented Features
+
+Details are also available in [Decision Log](/decision-log.md).
+
+**Core Features**
+
+| Feature | Description |
+|---------|-------------|
+| **TODO Management** | Full CRUD capabilities with all required fields: Unique ID, Name, Description, Due Date, Status (Not Started, In Progress, Completed, Archived), and Priority. |
+| **Recurring Tasks** | Supported schedules for daily, weekly, monthly, and custom day-intervals. The next occurrence is automatically generated when a recurring task is completed. |
+| **Task Dependencies** | Users can link prerequisite tasks. The system strictly prevents a dependent task from being moved to "In Progress" or "Completed" until all of its dependencies are "Completed." Circular dependencies are actively blocked by the backend using a Depth-First Search (DFS) algorithm. |
+| **Filtering and Sorting** | Included server-side filtering by status, priority, due date, and dependency status (blocked/unblocked), alongside sorting by due date, priority, status, and name. |
+| **Web UI** | A functional React-based interface allowing users to manage tasks, manage dependencies, and apply filters/sorts interactively. |
+
+**Non-Functional Requirements**
+
+| Feature | Description |
+|---------|-------------|
+| **Concurrent Access** | Built to support multiple users working on the same list concurrently via a shared workspace model. |
+| **Data Retention** | Implemented soft-deletion (using an `is_deleted` flag) so that deleted TODOs are never permanently lost. |
+| **Performance at Scale (10,000+ items)** | Supported large lists without UI degradation by implementing robust database indexing and server-side pagination (maintaining ~6–67ms per page response times). |
+
+**Nice-to-Have Features (Optional)**
+
+| Feature | Description |
+|---------|-------------|
+| **User Authentication** | Implemented secure JWT-based registration and login, anchoring the shared team workspace model. |
+| **DevOps (Docker & CI)** | Partially implemented. Docker for the backend is configured (usage guide in `docs/docker.md`). Continuous Integration (CI) is implemented with two workflows: a manually dispatched workflow that generates a unit test report on GitHub Pages, and an automated unit test workflow for any PR to the `main` branch. Continuous Deployment (CD) was not implemented as the application is not hosted remotely. |
+| **Real-time updates** | Any changes to the list of todos or any todo statuses will be reflected automatically in real-time to other users who are viewing the same todo list across browser tabs or users. |
+| **Architecture Diagram** | Available in the repository's documentation outlining the full tech stack (React, oRPC, Express, PostgreSQL). |
+| **Other Technical Improvements** | Introduced oRPC for end-to-end type safety between frontend and backend, avoiding manual DTOs. Abstracted pure domain logic (recurrence math, dependency graph validation) for high unit-test coverage. |
+
+Additionally:
 
 - **TODO CRUD** with soft delete (data is never permanently lost).
 - **Statuses:** Not Started, In Progress, Completed, Archived.
@@ -88,22 +128,42 @@ so concurrent files don't clobber shared test data.
 - **Server-side pagination:** the DB performs `LIMIT/OFFSET` over indexed columns.
 - **JWT authentication** over a shared workspace.
 
+**What was NOT built and why**
+
+| Feature | Reason |
+| --- | --- |
+| **Bulk Operations** | The concept of `group` is underspecified and unclear from the requirement. It also adds API and UI complexity for marginal MVP value. |
+| **RBAC / Private TODO Lists / Sharing** | The shared-workspace model sidesteps this entirely, saving significant time on permissions architecture. |
+| **Optimistic Concurrency Control** | Last-write-wins is an acceptable baseline for this scope; prioritized core business logic instead. |
+| **JWT Refresh Tokens** | A single 24h access token keeps the MVP simple; re-login is the documented trade-off. |
+
 ## Project structure
 
 ```
 src/
-├─ shared/api.ts          # oRPC contract (shared by backend + frontend, full type-safety)
+├─ main.tsx                       # web entry point (Vite)
+├─ shared/
+│  └─ api.ts                      # oRPC contract (shared by backend + frontend, full type-safety)
 ├─ backend/
-│  ├─ db.ts, create-tables.sql, db.d.ts
-│  ├─ context.ts          # ServerContext / AuthedContext types
-│  ├─ procedures.ts       # oRPC router (thin handlers)
-│  ├─ middleware/auth.ts  # requireAuth (JWT)
-│  ├─ lib/                # pure: state-machine, recurrence, cycle-detection, jwt, errors
-│  └─ domain/             # auth, todos, dependencies (service + repo each)
+│  ├─ db.ts, create-tables.sql, db.d.ts   # Kysely connection, schema, generated types
+│  ├─ main.ts                     # Express server bootstrap
+│  ├─ router.ts                   # oRPC router composition
+│  ├─ procedures.ts               # oRPC procedures (thin handlers)
+│  ├─ openapi.ts                  # OpenAPI document generation
+│  ├─ seed.ts                     # bulk insert 10,000+ todos (scale demo)
+│  ├─ context.ts                  # ServerContext / AuthedContext types
+│  ├─ middleware/auth.ts          # requireAuth (JWT)
+│  ├─ lib/                        # pure logic: state-machine, recurrence,
+│  │                              #   cycle-detection, jwt, events (SSE), errors
+│  └─ domain/                     # auth, todos, dependencies (service + repo each)
 └─ web/
-   ├─ client.ts           # oRPC client + TanStack Query utils (orpc)
-   ├─ routes/             # login, register, workspace
-   └─ components/         # TodoTable, TodoFilters, Pagination, TodoForm, TodoDetailDrawer
+   ├─ App.tsx                     # root app component
+   ├─ client.ts                   # oRPC client + TanStack Query utils (orpc)
+   ├─ routes/                     # index (workspace), login, register
+   ├─ hooks/todos.ts              # TanStack Query hooks
+   ├─ lib/                        # auth, utils
+   └─ components/                 # TodoFilters, Pagination, TodoForm, TodoDetailDrawer,
+                                  #   TodoBadges, AppSelect, ui/ (shadcn)
 ```
 
 ## Documentation

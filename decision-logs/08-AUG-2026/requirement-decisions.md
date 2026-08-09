@@ -33,6 +33,8 @@ You *could* program the system to automatically demote the current task back to 
 
 # 2. What happens if a recurring task depends on another recurring task?
 
+**Decision**: If a recurring task depends on another recurring task (for example: Eat Breakfast -> Make Oatmeal), we choose not to automatically link the new recurring task ('Make breakfast') to the new dependent task ('Make oatmeal') once the previous task is completed. The reasoning is outlined below where although such logic would make sense in this situation, it also doesn't work out in certain situations. Since trying to outline every scenario and the resolution would be rather tedious, and the requirement doesn't exactly specify how this mechanism should work, it has been decided to be kept out of scope. And the newly created recurring task would still maintain its dependencies on the old recurring tasks.
+
 For example
 
 Task 1: Eat breakfast (recurring daily, depends on task 2)
