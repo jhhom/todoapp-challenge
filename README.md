@@ -76,7 +76,7 @@ so concurrent files don't clobber shared test data.
 |-------------|-------------|
 | README with instructions for setup and local development | Instructions for setup/dev is given in this README |
 | API documentation | [openapi.json](/openapi.json) |
-| Decision log | The compiled decision logs is in [Decision Log](/decision-log.md). More detailed discussions behind each decision is also available under the `decision-logs` folder in this repository, where some of the discussions come from our discussions/answers from AI that has context into the project's requirements and our existing decisions. |
+| Decision log | The compiled decision logs is in [Decision Log](/decision-log.md). More detailed discussions behind each decision is also available under the [decision-logs](/decision-logs/) folder in this repository, where some of the discussions come from our discussions/answers from AI that has context into the project's requirements and our existing decisions. |
 
 ## Implemented Features
 

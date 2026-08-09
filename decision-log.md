@@ -1,5 +1,9 @@
 # Decision Log
 
+This document is a compilation of all the decisions made for this project.
+
+Some of the discussions/reasoning behind these decisions are also available under the [decision-logs](/decision-logs/) folder.
+
 ## 0. What was built
 
 Based on the project requirements, the following features and capabilities were successfully implemented:
