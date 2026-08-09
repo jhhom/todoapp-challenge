@@ -169,4 +169,4 @@ src/
 ## Documentation
 
 - [API documentation](docs/api.md)
-- [Decision log](decision-logs/07-AUG-2026/final-decision-log.md)
+- [Decision log](/decision-log.md)
