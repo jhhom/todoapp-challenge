@@ -212,6 +212,29 @@ describe("todoService", () => {
     ).rejects.toThrow();
   });
 
+  it("hides soft-deleted tasks from the dependencies list", async () => {
+    const user = await seedUser();
+    const svc = makeService();
+    const prereq = await svc.create({
+      name: "Prereq",
+      createdBy: String(user.id),
+      schedule: "none",
+      priority: "medium",
+    });
+    const task = await svc.create({
+      name: "Task",
+      createdBy: String(user.id),
+      schedule: "none",
+      priority: "medium",
+    });
+    await svc.addDependency(task.id, prereq.id);
+    // Soft-delete the prerequisite.
+    await svc.softDelete(prereq.id);
+
+    const dto = await svc.get(task.id);
+    expect(dto.dependencies).toEqual([]);
+  });
+
   it("allows a blocked task to be archived", async () => {
     const user = await seedUser();
     const svc = makeService();

@@ -107,10 +107,16 @@ export function createTodoRepo(db: Kysely<DB>) {
     },
 
     async dependenciesOf(taskId: string): Promise<string[]> {
+      // Only surface edges whose target task still "exists" — a soft-deleted
+      // dependency is no longer actionable and must not appear in the UI (or
+      // be copied into recurring clones). Mirrors the isDeleted filter used by
+      // isBlocked / list.
       const rows = await db
-        .selectFrom("todoDependency")
-        .select("dependsOnTaskId")
-        .where("taskId", "=", taskId)
+        .selectFrom("todoDependency as d")
+        .innerJoin("todo as dep", "dep.id", "d.dependsOnTaskId")
+        .select("d.dependsOnTaskId")
+        .where("d.taskId", "=", taskId)
+        .where("dep.isDeleted", "=", false)
         .execute();
       return rows.map((r) => String(r.dependsOnTaskId));
     },

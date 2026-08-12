@@ -120,4 +120,32 @@ describe("todoRepo", () => {
     expect(await repo.isBlocked(String(task.id))).toBe(true);
     expect(await repo.isBlocked(String(prereq.id))).toBe(false);
   });
+
+  it("dependenciesOf returns live (non-deleted) dependencies", async () => {
+    const user = await seedUser();
+    const repo = createTodoRepo(database);
+    const prereq = await seedTodo(String(user.id), "P");
+    const task = await seedTodo(String(user.id), "T");
+    await database
+      .insertInto("todoDependency")
+      .values({ taskId: task.id, dependsOnTaskId: prereq.id })
+      .execute();
+    const deps = await repo.dependenciesOf(String(task.id));
+    expect(deps).toEqual([String(prereq.id)]);
+  });
+
+  it("dependenciesOf excludes soft-deleted dependencies", async () => {
+    const user = await seedUser();
+    const repo = createTodoRepo(database);
+    const prereq = await seedTodo(String(user.id), "P");
+    const task = await seedTodo(String(user.id), "T");
+    await database
+      .insertInto("todoDependency")
+      .values({ taskId: task.id, dependsOnTaskId: prereq.id })
+      .execute();
+    // Soft-delete the prerequisite; the edge should no longer surface.
+    await repo.softDelete(String(prereq.id));
+    const deps = await repo.dependenciesOf(String(task.id));
+    expect(deps).toEqual([]);
+  });
 });
