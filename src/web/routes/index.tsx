@@ -175,7 +175,7 @@ export default function Workspace() {
                 {t.createdByEmail ?? "—"}
               </td>
               <td className="p-2 whitespace-nowrap">
-                {format(new Date(t.createdAt), "yy MMM dd HH:mm")}
+                {format(new Date(t.createdAt), "yy MMM dd HH:mm:ss")}
               </td>
             </tr>
           ))}

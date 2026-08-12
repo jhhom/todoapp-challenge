@@ -84,14 +84,26 @@ export function TodoDetailDrawer({
   if (detail.isError || !detail.data)
     return (
       <div className="fixed right-0 top-0 h-full w-[26rem] border-l bg-background p-4">
-        <button onClick={onClose}>✕</button>
+        <button
+          className="rounded-md px-1.5 text-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          onClick={onClose}
+        >
+          ✕
+        </button>
         <p className="mt-4 text-destructive">Could not load task.</p>
       </div>
     );
 
   const t = detail.data;
   const byId = new Map((candidates.data?.items ?? []).map((c) => [c.id, c]));
-  const labelFor = (id: string) => byId.get(id)?.name ?? `${id.slice(0, 8)}…`;
+  const labelFor = (id: string) => {
+    const item = byId.get(id);
+    if (item) {
+      return `${item.name} (${format(new Date(item.createdAt), "MMM dd, yyyy HH:mm:ss")})`;
+    } else {
+      return `${id.slice(0, 8)}…`;
+    }
+  };
 
   const changeStatus = (status: string) => {
     setStatusErr("");
@@ -110,12 +122,17 @@ export function TodoDetailDrawer({
     <div className="fixed shadow-md right-0 top-0 h-full w-[32rem] space-y-3 overflow-auto border-l bg-background p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">{t.name}</h2>
-        <button onClick={onClose}>✕</button>
+        <button
+          className="rounded-md px-6 py-1.5 bg-gray-200 cursor-pointer text-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          onClick={onClose}
+        >
+          ✕
+        </button>
       </div>
       <p className="text-sm text-muted-foreground">{t.description}</p>
       {t.createdAt && (
         <p className="text-sm text-muted-foreground">
-          Created {format(new Date(t.createdAt), "MMM dd, yyyy HH:mm")}
+          Created {format(new Date(t.createdAt), "MMM dd, yyyy HH:mm:ss")}
         </p>
       )}
 
@@ -163,7 +180,7 @@ export function TodoDetailDrawer({
             Blocked by unfinished dependencies.
           </p>
         )}
-        {t.nextOccurrenceId && (
+        {t.nextOccurrenceId && byId.get(t.nextOccurrenceId) && (
           <p className="text-xs text-muted-foreground">
             Next occurrence created: {labelFor(t.nextOccurrenceId)}
           </p>
@@ -199,7 +216,7 @@ export function TodoDetailDrawer({
                       variant="secondary"
                       className="mt-1 shrink-0 font-normal tabular-nums"
                     >
-                      {format(new Date(dep.createdAt), "MMM dd HH:mm")}
+                      {format(new Date(dep.createdAt), "MMM dd HH:mm:ss")}
                     </Badge>
                   )}
                 </div>
