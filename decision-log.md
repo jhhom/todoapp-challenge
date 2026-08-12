@@ -40,7 +40,7 @@ Based on the project requirements, the following features and capabilities were 
 
 - **Due Dates are Optional:** The specification did not mandate due dates. I made `due_date` nullable so users can capture tasks before deciding on a deadline.
 - **Due Dates in the Past:** Allowed. In real-world scenarios, users often use TODO lists retroactively for tracking or logging tasks they forgot to enter beforehand.
-- **Bypassing "In Progress":** The requirement stated a blocked task cannot be moved to "In Progress". I interpreted the intent as enforcing sequential execution, extending this block to "Completed" as well (a task that cannot be started logically cannot be finished). Blocked tasks can still be moved directly to "Archived" or soft-deleted.
+- **Bypassing "In Progress":** Moving a task directly from "Not Started" to "Completed" (bypassing "In Progress") is allowed for unblocked tasks. However, the requirement stated a *blocked* task cannot be moved to "In Progress". I interpreted the intent as enforcing sequential execution, extending this restriction to "Completed" as well (a task that cannot be started logically cannot be finished). Blocked tasks can still be moved directly to "Archived" or soft-deleted.
 - **Adding Dependencies to Active Tasks:** The API rejects adding an incomplete dependency to a task that is already "In Progress" or "Completed" to prevent invalid states. However, users can reverse an active task directly back to "Not Started" to fix their workflow.
 - **Reversing Completion on Recurring Tasks:** Users can reverse a "Completed" task. The system tracks generation state via a `next_occurrence_id` to ensure that re-completing the task does not spawn a duplicate future occurrence.
 - **"Archived" vs. "Deleted":** "Archived" is a non-terminal status (can be reversed), whereas deletion is a soft-delete flag (`is_deleted = true`) to satisfy the "data should not be permanently lost" requirement. Soft-deleting a dependency permanently unblocks its dependent task.
@@ -81,3 +81,18 @@ Based on the project requirements, the following features and capabilities were 
 - **Cursor-Based Pagination:** Transition from `OFFSET` to cursors for stable deep pagination as the dataset grows significantly beyond 10,000 items.
 - **Secure Session Management:** Use short-lived access tokens and refresh tokens stored in HTTP-only cookies with CSRF protection, rather than standard local storage tokens.
 - **Per-User Isolation:** Support personal lists and explicit task sharing if the product outgrew the simple team workspace model.
+- **Proactive Cycle Prevention in UI:** While the backend correctly validates and rejects circular dependencies (returning a 400 error), the ideal UX would be to proactively hide invalid tasks from the frontend dependency selection dropdown so the user cannot even attempt to create a cycle. This could be achieved by having the backend filter the dropdown options to exclude tasks that would cause a cycle. However, this was deferred for scoping and to optimize for time and performance, as calculating valid dependencies across 10,000+ tasks on every dropdown fetch would add significant backend complexity and overhead.
+
+## 5. Edge cases
+
+**1. Stale `next_occurrence_id` after soft-deleting a generated recurring task**
+
+**Scenario:** When a recurring task is completed, the system automatically generates a "next occurrence" task and records its ID in the parent's `next_occurrence_id` column. This pointer serves two purposes: it surfaces the spawned task in the UI ("Next occurrence created: …"), and it prevents duplicate generation on re-completion (the Q9 no-duplicate rule — `next_occurrence_id` is intentionally *not* cleared when a user reverses a completed task back to `in_progress`).
+
+However, if a user soft-deletes that generated next occurrence task, the `next_occurrence_id` pointer on the parent still references the now-deleted task. The pointer is never cleared on deletion.
+
+**Impact:** If the user subsequently reverses the parent task back to `in_progress` and completes it again, the completion logic checks `next_occurrence_id` to decide whether to generate a new occurrence. Because the pointer still holds a value (the deleted task's ID), the guard evaluates to `false` and **silently skips generation** — no new occurrence is created, breaking the recurrence chain indefinitely.
+
+**Root cause:** The generation guard only checked for the *presence* of `next_occurrence_id`, not the *liveness* of the task it pointed to. A soft-deleted occurrence left a dangling reference that was indistinguishable from a live one.
+
+**Resolution:** The completion logic now verifies that `next_occurrence_id` actually points to a **live** (non-deleted) task before suppressing generation. If the referenced occurrence has been soft-deleted (or no longer exists), the slot is treated as empty and a fresh occurrence is regenerated, with `next_occurrence_id` updated to the new task. This preserves the Q9 no-duplicate guarantee for live occurrences while self-healing the recurrence chain when the generated task is deleted.

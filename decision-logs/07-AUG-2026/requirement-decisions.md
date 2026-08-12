@@ -52,7 +52,7 @@ Yes it makes sense. There is no problem with its design and implementation eithe
 
 **Reasoning**: Task dependencies form a Directed Acyclic Graph (DAG). Allowing cycles would permanently deadlock tasks. I prioritized implementing a cycle-detection algorithm (using Depth-First Search) on the backend because the API must be the ultimate guarantor of data integrity, protecting against invalid payloads regardless of the client.
 
-**Trade-off**: The ideal UX would be to proactively hide invalid tasks from the frontend dependency selection dropdown so the user cannot even attempt to create a cycle. However, doing so with 10,000+ tasks would require complex client-side graph traversal and heavy payloads. To optimize for time and performance, I chose to handle it via backend validation and frontend error surfacing instead.
+**Trade-off**: The ideal UX would be to proactively hide invalid tasks from the frontend dependency selection dropdown so the user cannot even attempt to create a cycle. This could be achieved by having the backend filter the dropdown options to exclude tasks that would cause a cycle. However, doing so with 10,000+ tasks would require significant backend complexity and overhead on every dropdown fetch. To limit the scope and to optimize for time and performance, I chose to handle it via backend validation and frontend error surfacing instead.
 
 ## Question 6: What happens to a dependent task if its dependency is deleted (soft-deleted)?
 
@@ -65,13 +65,13 @@ Yes it makes sense. There is no problem with its design and implementation eithe
 ## Question 7: Can a task bypass the "In Progress" status?
 
 * *Context:* The requirements state: *"A dependent task cannot be moved to 'In Progress' until all of its dependencies are 'Completed'."*
-* *Impact:* Can a user move a blocked task directly from "Not Started" to "Completed"? The requirement specifically restricts moving to "In Progress," but is silent on skipping steps.
+* *Impact:* Can a user move a task directly from "Not Started" to "Completed"? The requirement specifically restricts moving a blocked task to "In Progress," but is silent on skipping steps or terminal states.
 
 **Enforcing Dependency Blocks on Terminal States**
 
-**Decision**: The system strictly prevents a blocked task from being moved to either "In Progress" OR "Completed". However, a blocked task can be moved directly to "Archived" or soft-deleted.
+**Decision**: Yes, users are allowed to move an unblocked task directly from "Not Started" to "Completed" (bypassing "In Progress"). However, the system strictly prevents a *blocked* task from being moved to either "In Progress" OR "Completed". A blocked task can still be moved directly to "Archived" or soft-deleted.
 
-**Reasoning**: The requirement explicitly stated that blocked tasks cannot be moved to "In Progress," but was silent on bypassing to "Completed." I interpreted the intent of this requirement to be the enforcement of sequential execution. Logically, a task that cannot be started cannot be finished. Allowing users to bypass the block by jumping straight to "Completed" would undermine the entire purpose of the dependency feature.
+**Reasoning**: For normal tasks, skipping "In Progress" is perfectly fine. But for blocked tasks, while the requirement explicitly stated they cannot be moved to "In Progress," it was silent on bypassing to "Completed." I interpreted the intent of this requirement to be the enforcement of sequential execution. Logically, a task that cannot be started cannot be finished. Allowing users to bypass the block by jumping straight to "Completed" would undermine the entire purpose of the dependency feature.
 
 **Trade-off**: This requires slightly more robust validation logic on the backend (a state machine approach rather than a simple status check). I chose to implement this stricter validation because data integrity and logical consistency are critical for a task management system.
 
@@ -130,17 +130,13 @@ For example: *"Regarding Q5 (Circular Dependencies): To prevent deadlocks, I imp
 
 # Assumptions made
 
-## 1. When a recurring TODO is marked as completed, the next occurence is created based on its CREATED_AT
+## 1. When a recurring TODO is marked as completed, the next occurrence is created based on its DUE_DATE
 
-It does not make sense that every TODO needs to have a due date.
+If the recurring task has a `due_date`, the next task's `due_date` will be calculated by adding the recurring interval to the original `due_date`. 
 
-Therefore, we will add another field CREATED_AT instead.
+For example, if a task recurs WEEKLY with a `due_date` of 08 Aug, and it's completed on 10 Aug, its next task will be created with a `due_date` of 08 Aug + 7 days, which is 15 Aug.
 
-And the next todo should be created based on the CREATED_AT.
-
-If a task recurs WEEKLY has a CREATED_AT of 08 Aug, and it's completed on 10 Aug. 
-
-It's next task will be created with 08 Aug + 7 days, which is 15 Aug.
+If the recurring task does not have a `due_date`, then it will keep a `null` (empty) `due_date` for the next recurring task.
 
 
 # Authentication and Shared State
