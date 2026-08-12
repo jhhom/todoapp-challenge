@@ -142,6 +142,36 @@ describe("todoService", () => {
     expect(recompleted.nextOccurrenceId).toBe(firstOccurrence);
   });
 
+  it("regenerates the next occurrence when the generated task is soft-deleted then re-completed", async () => {
+    const user = await seedUser();
+    const svc = makeService();
+    const created = await svc.create({
+      name: "Daily",
+      createdBy: String(user.id),
+      schedule: "daily",
+      priority: "medium",
+    });
+    // Complete -> generates first occurrence.
+    const completed = await svc.update(created.id, { status: "completed" });
+    const firstOccurrence = completed.nextOccurrenceId!;
+    expect(firstOccurrence).not.toBeNull();
+
+    // User soft-deletes the generated recurring task.
+    await svc.softDelete(firstOccurrence);
+
+    // Reverse the parent back to in_progress, then complete again.
+    await svc.update(created.id, { status: "in_progress" });
+    const recompleted = await svc.update(created.id, { status: "completed" });
+
+    // A NEW occurrence must be generated, distinct from the deleted one.
+    expect(recompleted.nextOccurrenceId).not.toBeNull();
+    expect(recompleted.nextOccurrenceId).not.toBe(firstOccurrence);
+    // The new occurrence must be live (fetchable).
+    const regenerated = await svc.get(recompleted.nextOccurrenceId!);
+    expect(regenerated.name).toBe("Daily");
+    expect(regenerated.schedule).toBe("daily");
+  });
+
   it("allows reversing in_progress/completed directly back to not_started", async () => {
     const user = await seedUser();
     const svc = makeService();

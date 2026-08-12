@@ -157,39 +157,54 @@ export function createTodoService(deps: {
       if (patch.status === "completed" && todo.status !== "completed") {
         const now = new Date();
         updates.completedAt = now;
-        if (todo.schedule !== "none" && !todo.nextOccurrenceId) {
-          // Q6: anchor on the completed task's own due date and skip ahead
-          // (catch-up) until the next slot is strictly after completion. A
-          // task with no due date still produces a next occurrence with no
-          // due date (Q4 null carryover).
-          const nextDue = todo.dueDate
-            ? computeNextDueDate(
-                todo.schedule as never,
-                todo.customIntervalDays,
-                todo.dueDate,
-                now,
-              )
-            : null;
-          const clone = await todoRepo.insert({
-            name: todo.name,
-            description: todo.description,
-            dueDate: nextDue,
-            status: "not_started",
-            priority: todo.priority,
-            schedule: todo.schedule,
-            customIntervalDays: todo.customIntervalDays,
-            createdBy: todo.createdBy,
-          });
-          updates.nextOccurrenceId = clone.id;
-          // The recurring clone is a new todo the UI should learn about.
-          publish({ action: "created", todoId: String(clone.id) });
-          // Copy only recurring dependencies (Q3); non-recurring deps are referenced,
-          // not cloned.
-          const depIds = await todoRepo.dependenciesOf(id);
-          for (const depId of depIds) {
-            const dep = await todoRepo.findById(depId);
-            if (dep && dep.schedule !== "none") {
-              await dependencyService.add(String(clone.id), depId);
+        if (todo.schedule !== "none") {
+          // Determine whether the existing nextOccurrenceId is still "live".
+          // A soft-deleted (or missing) occurrence must be treated as if the
+          // slot is empty, so that completion regenerates a fresh occurrence
+          // instead of silently doing nothing. This preserves the Q9
+          // no-duplicate rule for *live* occurrences while fixing the case
+          // where the user deletes the generated task.
+          let occurrenceLive = false;
+          if (todo.nextOccurrenceId) {
+            const existing = await todoRepo.findById(
+              String(todo.nextOccurrenceId),
+            );
+            occurrenceLive = !!existing && !existing.isDeleted;
+          }
+          if (!occurrenceLive) {
+            // Q6: anchor on the completed task's own due date and skip ahead
+            // (catch-up) until the next slot is strictly after completion. A
+            // task with no due date still produces a next occurrence with no
+            // due date (Q4 null carryover).
+            const nextDue = todo.dueDate
+              ? computeNextDueDate(
+                  todo.schedule as never,
+                  todo.customIntervalDays,
+                  todo.dueDate,
+                  now,
+                )
+              : null;
+            const clone = await todoRepo.insert({
+              name: todo.name,
+              description: todo.description,
+              dueDate: nextDue,
+              status: "not_started",
+              priority: todo.priority,
+              schedule: todo.schedule,
+              customIntervalDays: todo.customIntervalDays,
+              createdBy: todo.createdBy,
+            });
+            updates.nextOccurrenceId = clone.id;
+            // The recurring clone is a new todo the UI should learn about.
+            publish({ action: "created", todoId: String(clone.id) });
+            // Copy only recurring dependencies (Q3); non-recurring deps are referenced,
+            // not cloned.
+            const depIds = await todoRepo.dependenciesOf(id);
+            for (const depId of depIds) {
+              const dep = await todoRepo.findById(depId);
+              if (dep && dep.schedule !== "none") {
+                await dependencyService.add(String(clone.id), depId);
+              }
             }
           }
         }
