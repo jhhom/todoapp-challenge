@@ -79,6 +79,43 @@ describe("computeNextDueDate", () => {
     );
   });
 
+  // Explicit monthlyRepeatMode disambiguates "the Nth" vs "end of month" for
+  // month-end anchors in short months (e.g. Apr 30), where a single due date
+  // can't express which the user meant.
+  it("honors explicit end_of_month for a 30-day month-end anchor (Apr 30 -> May 31)", () => {
+    const anchor = new Date("2025-04-30T00:00:00Z");
+    expect(
+      computeNextDueDate("monthly", null, anchor, anchor, "end_of_month"),
+    ).toEqual(new Date("2025-05-31T00:00:00Z"));
+  });
+
+  it("honors explicit day_of_month for a 30-day month-end anchor (Apr 30 -> May 30)", () => {
+    const anchor = new Date("2025-04-30T00:00:00Z");
+    expect(
+      computeNextDueDate("monthly", null, anchor, anchor, "day_of_month"),
+    ).toEqual(new Date("2025-05-30T00:00:00Z"));
+  });
+
+  it("day_of_month preserves the 30th after a short month (Jan 30 -> Mar 30)", () => {
+    // The old code drifted Jan 30 -> Feb 28 -> Mar 31. Explicit day_of_month
+    // keeps the anchor day across the clamp.
+    const anchor = new Date("2025-01-30T00:00:00Z");
+    const completed = new Date("2025-02-28T00:00:00Z");
+    expect(
+      computeNextDueDate("monthly", null, anchor, completed, "day_of_month"),
+    ).toEqual(new Date("2025-03-30T00:00:00Z"));
+  });
+
+  it("null monthlyRepeatMode is anchor-aware: a non-month-end anchor keeps its day (Jan 30 -> Mar 30)", () => {
+    // The null fallback fixes the drift for legacy / non-disambiguated tasks,
+    // while genuine month-end anchors keep their behavior (Jan 31 -> Feb 28).
+    const anchor = new Date("2025-01-30T00:00:00Z");
+    const completed = new Date("2025-02-28T00:00:00Z");
+    expect(computeNextDueDate("monthly", null, anchor, completed)).toEqual(
+      new Date("2025-03-30T00:00:00Z"),
+    );
+  });
+
   it("skips by the custom interval for an overdue custom task", () => {
     // custom = 3 days, due Aug 1, completed Aug 8 -> Aug 4, Aug 7, Aug 10.
     const anchor = new Date("2026-08-01T00:00:00Z");

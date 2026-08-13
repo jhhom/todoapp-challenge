@@ -11,6 +11,8 @@ export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export type TodoMonthlyRepeatMode = "day_of_month" | "end_of_month";
+
 export type TodoPriority = "high" | "low" | "medium";
 
 export type TodoSchedule = "custom" | "daily" | "monthly" | "none" | "weekly";
@@ -33,6 +35,7 @@ export interface Todo {
   dueDate: Timestamp | null;
   id: Generated<string>;
   isDeleted: Generated<boolean>;
+  monthlyRepeatMode: TodoMonthlyRepeatMode | null;
   name: string;
   nextOccurrenceId: string | null;
   priority: Generated<TodoPriority>;

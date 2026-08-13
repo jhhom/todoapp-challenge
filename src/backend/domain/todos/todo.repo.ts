@@ -133,6 +133,27 @@ export function createTodoRepo(db: Kysely<DB>) {
         .executeTakeFirst();
       return !!row;
     },
+
+    /**
+     * True if any task that DEPENDS ON `taskId` (i.e. `taskId` is a
+     * prerequisite) has advanced beyond "Not Started" — it is in_progress /
+     * completed / archived. Used to block reversing a completed prerequisite
+     * that would silently invalidate an active dependent (Edge Case Demo 5:
+     * "Residual Blocked State After Dependency Reversal"). Reads the reverse
+     * edge of the dependency graph and mirrors isBlocked().
+     */
+    async hasDependentBeyondNotStarted(taskId: string): Promise<boolean> {
+      const row = await db
+        .selectFrom("todoDependency as d")
+        .innerJoin("todo as dependent", "dependent.id", "d.taskId")
+        .where("d.dependsOnTaskId", "=", taskId)
+        .where("dependent.status", "<>", "not_started")
+        .where("dependent.isDeleted", "=", false)
+        .select("d.taskId")
+        .limit(1)
+        .executeTakeFirst();
+      return !!row;
+    },
   };
 }
 

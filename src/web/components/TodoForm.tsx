@@ -4,6 +4,8 @@ import { AppSelect, type SelectOption } from "./AppSelect";
 import { Button } from "./ui/button";
 import { Field, FieldGroup, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Textarea } from "./ui/textarea";
 
 const STATUSES: SelectOption[] = [
@@ -33,12 +35,33 @@ const emptyForm = {
   priority: "medium",
   schedule: "none",
   customIntervalDays: "",
+  monthlyRepeatMode: "end_of_month" as "end_of_month" | "day_of_month",
 };
+
+/**
+ * True when a "YYYY-MM-DD" due date is the last day of its month (UTC).
+ * Mirrors the backend's end-of-month check so the toggle appears exactly when
+ * "the Nth" and "end of month" are ambiguous (e.g. Jan 31, Apr 30).
+ */
+function isEndOfMonthUTC(dateStr: string): boolean {
+  if (!dateStr) return false;
+  const d = new Date(dateStr); // date-only ISO parses as UTC midnight
+  if (Number.isNaN(d.getTime())) return false;
+  return (
+    d.getUTCDate() ===
+    new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate()
+  );
+}
 
 export function TodoForm() {
   const create = useCreateTodo();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ ...emptyForm });
+
+  // Only disambiguate when the monthly due date is a month-end — for any other
+  // day the intent ("the Nth") is unambiguous and the backend infers it.
+  const showRepeatToggle =
+    form.schedule === "monthly" && isEndOfMonthUTC(form.dueDate);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +79,7 @@ export function TodoForm() {
           form.schedule === "custom" && form.customIntervalDays
             ? Number(form.customIntervalDays)
             : undefined,
+        monthlyRepeatMode: showRepeatToggle ? form.monthlyRepeatMode : undefined,
       } as never,
       {
         onSuccess: () => {
@@ -145,6 +169,29 @@ export function TodoForm() {
                     setForm({ ...form, customIntervalDays: e.target.value })
                   }
                 />
+              </Field>
+            )}
+            {showRepeatToggle && (
+              <Field className="col-span-2">
+                <FieldLabel>Monthly repeat</FieldLabel>
+                <RadioGroup
+                  value={form.monthlyRepeatMode}
+                  onValueChange={(v) =>
+                    setForm({
+                      ...form,
+                      monthlyRepeatMode: v as "end_of_month" | "day_of_month",
+                    })
+                  }
+                >
+                  <Label htmlFor="tf-repeat-eom">
+                    <RadioGroupItem value="end_of_month" id="tf-repeat-eom" />
+                    Repeat on end of month
+                  </Label>
+                  <Label htmlFor="tf-repeat-dom">
+                    <RadioGroupItem value="day_of_month" id="tf-repeat-dom" />
+                    Repeat on day of month
+                  </Label>
+                </RadioGroup>
               </Field>
             )}
             {create.isError && (

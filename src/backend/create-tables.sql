@@ -4,11 +4,17 @@
 DROP TABLE IF EXISTS todo_dependency CASCADE;
 DROP TABLE IF EXISTS todo CASCADE;
 DROP TABLE IF EXISTS app_user CASCADE;
+-- Drop enum types too, so re-running this script is idempotent.
+DROP TYPE IF EXISTS todo_status CASCADE;
+DROP TYPE IF EXISTS todo_priority CASCADE;
+DROP TYPE IF EXISTS todo_schedule CASCADE;
+DROP TYPE IF EXISTS todo_monthly_repeat_mode CASCADE;
 
 -- Enums
-CREATE TYPE todo_status   AS ENUM ('not_started', 'in_progress', 'completed', 'archived');
-CREATE TYPE todo_priority AS ENUM ('low', 'medium', 'high');
-CREATE TYPE todo_schedule AS ENUM ('none', 'daily', 'weekly', 'monthly', 'custom');
+CREATE TYPE todo_status      AS ENUM ('not_started', 'in_progress', 'completed', 'archived');
+CREATE TYPE todo_priority    AS ENUM ('low', 'medium', 'high');
+CREATE TYPE todo_schedule    AS ENUM ('none', 'daily', 'weekly', 'monthly', 'custom');
+CREATE TYPE todo_monthly_repeat_mode AS ENUM ('day_of_month', 'end_of_month');
 
 -- Users (authentication; shared workspace)
 CREATE TABLE app_user (
@@ -28,6 +34,7 @@ CREATE TABLE todo (
     priority             todo_priority NOT NULL DEFAULT 'medium',
     schedule             todo_schedule NOT NULL DEFAULT 'none',
     custom_interval_days INT,
+    monthly_repeat_mode         todo_monthly_repeat_mode,
     next_occurrence_id   UUID REFERENCES todo(id),
     created_by           UUID NOT NULL REFERENCES app_user(id),
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),

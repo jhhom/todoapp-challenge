@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { ChevronsUpDownIcon } from "lucide-react";
+import { format, isToday } from "date-fns";
+import { ChevronsUpDownIcon, CircleAlertIcon } from "lucide-react";
 import { orpc } from "../client";
-import { StatusPills } from "./TodoBadges";
+import { PriorityBadge, StatusPills } from "./TodoBadges";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import {
@@ -81,25 +81,52 @@ export function TodoDetailDrawer({
         Loading…
       </div>
     );
-  if (detail.isError || !detail.data)
+  if (detail.isError || !detail.data) {
+    // Distinguish a malformed id (bad format / validation error) from a
+    // well-formed id that simply doesn't exist (or was soft-deleted).
+    const UUID_RE =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const err = detail.error as { code?: string; message?: string } | null;
+    const message =
+      !UUID_RE.test(todoId) || err?.code === "BAD_REQUEST"
+        ? "Invalid todo id entered."
+        : err?.code === "NOT_FOUND"
+          ? "Todo not found."
+          : (err?.message ?? "Could not load task.");
     return (
-      <div className="fixed right-0 top-0 h-full w-[26rem] border-l bg-background p-4">
-        <button
-          className="rounded-md px-1.5 text-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-          onClick={onClose}
-        >
-          ✕
-        </button>
-        <p className="mt-4 text-destructive">Could not load task.</p>
+      <div className="fixed right-0 top-0 h-full w-[26rem] space-y-4 border-l bg-background p-4">
+        <div className="flex justify-end">
+          <button
+            className="rounded-md px-1.5 text-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="mt-8 flex flex-col items-center gap-3 text-center">
+          <CircleAlertIcon className="size-8 text-destructive" aria-hidden />
+          <p className="text-base font-medium text-destructive">{message}</p>
+          <p className="break-all text-xs text-muted-foreground">
+            id: <code>{todoId}</code>
+          </p>
+        </div>
       </div>
     );
+  }
 
   const t = detail.data;
   const byId = new Map((candidates.data?.items ?? []).map((c) => [c.id, c]));
+  // "Today HH:mm:ss" when the task was created on the current calendar day
+  // (compared in the browser's local timezone); otherwise the given full format.
+  const createdTime = (iso: string, fullFormat: string) => {
+    const d = new Date(iso);
+    return isToday(d) ? format(d, "'Today' HH:mm:ss") : format(d, fullFormat);
+  };
   const labelFor = (id: string) => {
     const item = byId.get(id);
     if (item) {
-      return `${item.name} (${format(new Date(item.createdAt), "MMM dd, yyyy HH:mm:ss")})`;
+      return `${item.name} (${createdTime(item.createdAt, "MMM dd, yyyy HH:mm:ss")})`;
     } else {
       return `${id.slice(0, 8)}…`;
     }
@@ -117,6 +144,22 @@ export function TodoDetailDrawer({
   };
 
   const picked = pickedId ? byId.get(pickedId) : undefined;
+
+  // Read-only attribute labels for the Details section.
+  const scheduleLabel =
+    t.schedule === "custom"
+      ? t.customIntervalDays
+        ? `Every ${t.customIntervalDays} days`
+        : "Custom"
+      : t.schedule === "none"
+        ? "No recurrence"
+        : t.schedule.charAt(0).toUpperCase() + t.schedule.slice(1);
+  const monthlyModeLabel =
+    t.monthlyRepeatMode === "end_of_month"
+      ? "End of month"
+      : t.monthlyRepeatMode === "day_of_month"
+        ? "Day of month"
+        : null;
 
   return (
     <div className="fixed shadow-md right-0 top-0 h-full w-[32rem] space-y-3 overflow-auto border-l bg-background p-4">
@@ -166,7 +209,7 @@ export function TodoDetailDrawer({
       </div>
 
       <div className="space-y-1">
-        <label className="text-xs uppercase text-muted-foreground">
+        <label className="text-xs uppercase text-muted-foreground block margin-r-4">
           Status
         </label>
         <StatusPills
@@ -185,6 +228,43 @@ export function TodoDetailDrawer({
             Next occurrence created: {labelFor(t.nextOccurrenceId)}
           </p>
         )}
+      </div>
+
+      {/* Read-only task attributes. */}
+      <div className="space-y-3 my-6">
+        <label className="block text-xs uppercase text-muted-foreground">
+          Details
+        </label>
+        <dl className="mt-3 space-y-2 text-sm">
+          {/* Recurring schedule */}
+          <div className="flex gap-3">
+            <dt className="w-28 shrink-0 text-muted-foreground">Schedule</dt>
+            <dd>{scheduleLabel}</dd>
+          </div>
+          {/* Monthly repeat mode (only when recurring monthly) */}
+          {t.schedule === "monthly" && monthlyModeLabel && (
+            <div className="flex gap-3">
+              <dt className="w-28 shrink-0 text-muted-foreground">
+                Monthly mode
+              </dt>
+              <dd>{monthlyModeLabel}</dd>
+            </div>
+          )}
+          {/* Priority */}
+          <div className="flex gap-3">
+            <dt className="w-28 shrink-0 text-muted-foreground">Priority</dt>
+            <dd>
+              <PriorityBadge priority={t.priority} />
+            </dd>
+          </div>
+          {/* Due date */}
+          <div className="flex gap-3">
+            <dt className="w-28 shrink-0 text-muted-foreground">Due</dt>
+            <dd>
+              {t.dueDate ? format(new Date(t.dueDate), "MMM dd, yyyy") : "—"}
+            </dd>
+          </div>
+        </dl>
       </div>
 
       <div className="space-y-1">
@@ -216,7 +296,7 @@ export function TodoDetailDrawer({
                       variant="secondary"
                       className="mt-1 shrink-0 font-normal tabular-nums"
                     >
-                      {format(new Date(dep.createdAt), "MMM dd HH:mm:ss")}
+                      {createdTime(dep.createdAt, "MMM dd HH:mm:ss")}
                     </Badge>
                   )}
                 </div>

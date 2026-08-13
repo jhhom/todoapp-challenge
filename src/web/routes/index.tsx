@@ -3,7 +3,7 @@ import {
   useNavigate,
   useSearch,
 } from "@tanstack/react-router";
-import { format } from "date-fns";
+import { format, isToday } from "date-fns";
 import { useMemo } from "react";
 import { useTodoChanges, useTodoList } from "../hooks/todos";
 import { TodoFilters, type FilterState } from "../components/TodoFilters";
@@ -133,12 +133,12 @@ export default function Workspace() {
           <tr className="border-b text-left">
             <th className="p-2">Name</th>
             <th className="p-2">Status</th>
-            <th className="p-2">Priority</th>
+            <th className="p-2">Created At</th>
             <th className="p-2">Due</th>
             <th className="p-2">Recurs</th>
             <th className="p-2">Blocked</th>
             <th className="p-2">Created By</th>
-            <th className="p-2">Created At</th>
+            <th className="p-2">Priority</th>
           </tr>
         </thead>
         <tbody>
@@ -157,8 +157,13 @@ export default function Workspace() {
               <td className="p-2">
                 <StatusBadge status={t.status} />
               </td>
-              <td className="p-2">
-                <PriorityBadge priority={t.priority} />
+              <td className="p-2 whitespace-nowrap">
+                {/* "Today HH:mm:ss" when the task was created on the current
+                    calendar day (compared in the browser's local timezone);
+                    otherwise the full timestamp. */}
+                {isToday(new Date(t.createdAt))
+                  ? format(new Date(t.createdAt), "'Today' HH:mm:ss")
+                  : format(new Date(t.createdAt), "yy MMM dd HH:mm:ss")}
               </td>
               <td className="p-2">
                 {t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "—"}
@@ -174,8 +179,8 @@ export default function Workspace() {
               <td className="p-2 whitespace-nowrap">
                 {t.createdByEmail ?? "—"}
               </td>
-              <td className="p-2 whitespace-nowrap">
-                {format(new Date(t.createdAt), "yy MMM dd HH:mm:ss")}
+              <td className="p-2">
+                <PriorityBadge priority={t.priority} />
               </td>
             </tr>
           ))}

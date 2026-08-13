@@ -15,6 +15,7 @@ export const ScheduleEnum = z.enum([
   "monthly",
   "custom",
 ]);
+export const MonthlyRepeatModeEnum = z.enum(["day_of_month", "end_of_month"]);
 
 export const TodoSchema = z.object({
   id: z.string().uuid(),
@@ -25,6 +26,7 @@ export const TodoSchema = z.object({
   priority: PriorityEnum,
   schedule: ScheduleEnum,
   customIntervalDays: z.number().int().positive().nullable(),
+  monthlyRepeatMode: MonthlyRepeatModeEnum.nullable(),
   nextOccurrenceId: z.string().uuid().nullable(),
   createdBy: z.string().uuid(),
   createdByEmail: z.string().email().nullable(),
@@ -69,6 +71,7 @@ const CreateInput = z.object({
   priority: PriorityEnum.default("medium"),
   schedule: ScheduleEnum.default("none"),
   customIntervalDays: z.number().int().positive().optional(),
+  monthlyRepeatMode: MonthlyRepeatModeEnum.nullable().optional(),
   dependencyIds: z.array(z.string().uuid()).default([]),
 });
 
@@ -81,6 +84,7 @@ const UpdateInput = z.object({
   priority: PriorityEnum.optional(),
   schedule: ScheduleEnum.optional(),
   customIntervalDays: z.number().int().positive().nullable().optional(),
+  monthlyRepeatMode: MonthlyRepeatModeEnum.nullable().optional(),
 });
 
 /**

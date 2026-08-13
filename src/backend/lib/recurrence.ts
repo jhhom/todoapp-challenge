@@ -1,14 +1,42 @@
 export type Schedule = "none" | "daily" | "weekly" | "monthly" | "custom";
 
+/**
+ * Explicit monthly-repeat intent. Disambiguates "the Nth of every month"
+ * from "the end of every month" for month-end anchors (e.g. Apr 30), where a
+ * single due date cannot express which the user meant.
+ *
+ * - `"end_of_month"`: always land on the last day of the target month.
+ * - `"day_of_month"`: preserve the anchor's day-of-month, clamped to the
+ *   target month's length.
+ * - `null`: infer from the anchor — end-of-month only if the anchor itself was
+ *   the last day of its month, otherwise preserve the day. This keeps legacy
+ *   data behaving as before and is the only sensible reading for a
+ *   non-month-end anchor.
+ */
+export type MonthlyRepeatMode = "day_of_month" | "end_of_month";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Last calendar day (UTC) of the month containing `d`, e.g. 28 for Feb 2025. */
+function lastDayOfMonthUTC(d: Date): number {
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+}
 
 /**
  * Advance a date by exactly one recurrence interval.
+ *
+ * `anchorDueDate` is the *original* anchor (constant across catch-up
+ * iterations); the monthly branch uses it to recover the intended
+ * day-of-month, which the drifting `from` value loses after a clamp.
  */
 function advanceOne(
   schedule: Schedule,
   customIntervalDays: number | null,
   from: Date,
+  anchorDueDate: Date,
+  monthlyRepeatMode: MonthlyRepeatMode | null,
 ): Date {
   switch (schedule) {
     case "daily":
@@ -16,24 +44,20 @@ function advanceOne(
     case "weekly":
       return new Date(from.getTime() + 7 * DAY_MS);
     case "monthly": {
-      // Preserve "end of month" intent. setUTCMonth(+1) alone overflows
-      // month-end anchors (Jan 31 -> Feb 31 -> Mar 3), skipping short months
-      // and drifting to a random day. If `from` is the last day of its month,
-      // land on the last day of the target month; otherwise keep the
-      // day-of-month, clamped to the target month's length.
-      const day = from.getUTCDate();
-      const lastDayOfFrom = new Date(
-        Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + 1, 0),
-      ).getUTCDate();
-      const isEndOfMonth = day === lastDayOfFrom;
+      // Decide end-of-month vs. day-of-month. An explicit monthlyRepeatMode wins;
+      // otherwise infer from the *anchor* (not the drifting `from`), so a
+      // Jan 30 anchor that clamps to Feb 28 is not hijacked into a
+      // month-end chain.
+      const anchorDay = anchorDueDate.getUTCDate();
+      const useEndOfMonth =
+        monthlyRepeatMode === "end_of_month" ||
+        (monthlyRepeatMode == null && anchorDay === lastDayOfMonthUTC(anchorDueDate));
       const next = new Date(from);
       next.setUTCDate(1); // neutralize overflow before shifting the month
       next.setUTCMonth(next.getUTCMonth() + 1);
-      const lastDayOfTarget = new Date(
-        Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0),
-      ).getUTCDate();
+      const lastOfTarget = lastDayOfMonthUTC(next);
       next.setUTCDate(
-        isEndOfMonth ? lastDayOfTarget : Math.min(day, lastDayOfTarget),
+        useEndOfMonth ? lastOfTarget : Math.min(anchorDay, lastOfTarget),
       );
       return next;
     }
@@ -56,6 +80,7 @@ function advanceOne(
  * missed periods and reschedules to the next future slot instead of an
  * already-overdue date.
  *
+ * `monthlyRepeatMode` only affects monthly recurrence (see {@link MonthlyRepeatMode}).
  * Returns null when the schedule is "none". The null-due-date carryover policy
  * (Q4) is handled by the caller.
  */
@@ -64,11 +89,24 @@ export function computeNextDueDate(
   customIntervalDays: number | null,
   anchorDueDate: Date,
   completedAt: Date,
+  monthlyRepeatMode: MonthlyRepeatMode | null = null,
 ): Date | null {
   if (schedule === "none") return null;
-  let next = advanceOne(schedule, customIntervalDays, anchorDueDate);
+  let next = advanceOne(
+    schedule,
+    customIntervalDays,
+    anchorDueDate,
+    anchorDueDate,
+    monthlyRepeatMode,
+  );
   while (next.getTime() <= completedAt.getTime()) {
-    next = advanceOne(schedule, customIntervalDays, next);
+    next = advanceOne(
+      schedule,
+      customIntervalDays,
+      next,
+      anchorDueDate,
+      monthlyRepeatMode,
+    );
   }
   return next;
 }

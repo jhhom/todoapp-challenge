@@ -284,4 +284,108 @@ describe("todoService", () => {
     const archived = await svc.update(task.id, { status: "archived" });
     expect(archived.status).toBe("archived");
   });
+
+  describe("Edge Case Demo 5: reversing a completed prerequisite with an active dependent", () => {
+    /** Seeds prerequisite A + dependent B (B depends on A) with A completed. */
+    async function seedPrereqAndDependent() {
+      const user = await seedUser();
+      const svc = makeService();
+      const prereq = await svc.create({
+        name: "Task A (prerequisite)",
+        createdBy: String(user.id),
+        schedule: "none",
+        priority: "medium",
+      });
+      const dependent = await svc.create({
+        name: "Task B (depends on A)",
+        createdBy: String(user.id),
+        schedule: "none",
+        priority: "medium",
+      });
+      // B depends on A; A must be completed before B can progress.
+      await svc.addDependency(dependent.id, prereq.id);
+      await svc.update(prereq.id, { status: "completed" });
+      return { svc, prereq, dependent };
+    }
+
+    it("rejects reversing a completed prerequisite when the dependent is completed", async () => {
+      const { svc, prereq, dependent } = await seedPrereqAndDependent();
+      await svc.update(dependent.id, { status: "completed" });
+      // Reversing A back to not_started must be blocked (the Demo 5 scenario).
+      await expect(
+        svc.update(prereq.id, { status: "not_started" }),
+      ).rejects.toThrow(/completed dependency/);
+    });
+
+    it("rejects reversing a completed prerequisite when the dependent is in_progress", async () => {
+      const { svc, prereq, dependent } = await seedPrereqAndDependent();
+      await svc.update(dependent.id, { status: "in_progress" });
+      await expect(
+        svc.update(prereq.id, { status: "in_progress" }),
+      ).rejects.toThrow(/completed dependency/);
+    });
+
+    it("rejects reversing a completed prerequisite when the dependent is archived", async () => {
+      const { svc, prereq, dependent } = await seedPrereqAndDependent();
+      await svc.update(dependent.id, { status: "archived" });
+      await expect(
+        svc.update(prereq.id, { status: "not_started" }),
+      ).rejects.toThrow(/completed dependency/);
+    });
+
+    it("allows reversing when the dependent is still not_started (escape hatch)", async () => {
+      const { svc, prereq, dependent } = await seedPrereqAndDependent();
+      // Dependent never progressed past not_started -> reversal is safe.
+      expect(dependent.status).toBe("not_started");
+      const reversed = await svc.update(prereq.id, { status: "not_started" });
+      expect(reversed.status).toBe("not_started");
+    });
+
+    it("allows reversing a completed task that has no dependents", async () => {
+      const user = await seedUser();
+      const svc = makeService();
+      const standalone = await svc.create({
+        name: "Standalone",
+        createdBy: String(user.id),
+        schedule: "none",
+        priority: "medium",
+      });
+      await svc.update(standalone.id, { status: "completed" });
+      const reversed = await svc.update(standalone.id, {
+        status: "not_started",
+      });
+      expect(reversed.status).toBe("not_started");
+    });
+
+    it("rejects when any one of several dependents has progressed", async () => {
+      const user = await seedUser();
+      const svc = makeService();
+      const prereq = await svc.create({
+        name: "Task A",
+        createdBy: String(user.id),
+        schedule: "none",
+        priority: "medium",
+      });
+      const b = await svc.create({
+        name: "Task B (not_started)",
+        createdBy: String(user.id),
+        schedule: "none",
+        priority: "medium",
+      });
+      const c = await svc.create({
+        name: "Task C (completed)",
+        createdBy: String(user.id),
+        schedule: "none",
+        priority: "medium",
+      });
+      await svc.addDependency(b.id, prereq.id);
+      await svc.addDependency(c.id, prereq.id);
+      await svc.update(prereq.id, { status: "completed" });
+      // B stays not_started, but C completes -> reversing A must be blocked.
+      await svc.update(c.id, { status: "completed" });
+      await expect(
+        svc.update(prereq.id, { status: "in_progress" }),
+      ).rejects.toThrow(/completed dependency/);
+    });
+  });
 });

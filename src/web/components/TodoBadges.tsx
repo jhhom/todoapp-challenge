@@ -40,10 +40,23 @@ export function StatusBadge({ status }: { status: string }) {
 }
 
 /**
- * Coloured, clickable status "pills". Each status uses a semantic colour
- * (slate = not started, blue = in progress, green = completed, zinc =
- * archived); the active status is emphasised with a ring/border.
+ * A compact, single-track segmented control for picking a status. The active
+ * segment is filled with its semantic colour (white text + soft shadow); the
+ * others are muted and light up on hover. Kept on the same props as before so
+ * callers (e.g. TodoDetailDrawer) need no changes.
+ *
+ * Semantic colours: slate = Not Started, blue = In Progress, green =
+ * Completed, zinc = Archived.
  */
+
+/** Solid fills for the active segment of the segmented control. */
+const STATUS_ACTIVE_STYLES: Record<string, string> = {
+  not_started: "bg-slate-500 text-white dark:bg-slate-600",
+  in_progress: "bg-blue-600 text-white dark:bg-blue-700",
+  completed: "bg-green-600 text-white dark:bg-green-700",
+  archived: "bg-zinc-500 text-white dark:bg-zinc-600",
+};
+
 export function StatusPills({
   value,
   onChange,
@@ -54,7 +67,14 @@ export function StatusPills({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label="Status">
+    <div
+      role="group"
+      aria-label="Status"
+      className={[
+        "inline-flex flex-wrap gap-0.5 rounded-lg border bg-muted/50 p-1",
+        disabled ? "opacity-60" : "",
+      ].join(" ")}
+    >
       {STATUSES.map((s) => {
         const active = s === value;
         return (
@@ -65,12 +85,11 @@ export function StatusPills({
             aria-pressed={active}
             onClick={() => onChange(s)}
             className={[
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-              STATUS_STYLES[s] ?? STATUS_STYLES.not_started,
+              "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
               active
-                ? "border-foreground/50 ring-2 ring-foreground/15"
-                : "border-transparent opacity-60 hover:opacity-100",
-              disabled ? "cursor-not-allowed opacity-50" : "",
+                ? `${STATUS_ACTIVE_STYLES[s] ?? STATUS_ACTIVE_STYLES.not_started} shadow-sm`
+                : "text-muted-foreground hover:bg-background hover:text-foreground",
+              disabled ? "cursor-not-allowed" : "cursor-pointer",
             ].join(" ")}
           >
             {STATUS_LABELS[s] ?? s}

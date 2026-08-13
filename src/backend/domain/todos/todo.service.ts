@@ -1,6 +1,6 @@
 import { canTransition } from "../../lib/state-machine";
 import type { Status } from "../../lib/state-machine";
-import { computeNextDueDate } from "../../lib/recurrence";
+import { computeNextDueDate, type MonthlyRepeatMode } from "../../lib/recurrence";
 import { badRequest, notFound } from "../../lib/errors";
 import type { PublishTodoChange } from "../../lib/events";
 import type { TodoRepo, TodoRow } from "./todo.repo";
@@ -15,6 +15,7 @@ type CreateInput = {
   priority?: "low" | "medium" | "high";
   schedule?: "none" | "daily" | "weekly" | "monthly" | "custom";
   customIntervalDays?: number;
+  monthlyRepeatMode?: MonthlyRepeatMode | null;
   createdBy: string;
   dependencyIds?: string[];
 };
@@ -47,6 +48,7 @@ export function createTodoService(deps: {
         | "monthly"
         | "custom",
       customIntervalDays: todo.customIntervalDays,
+      monthlyRepeatMode: todo.monthlyRepeatMode,
       nextOccurrenceId: todo.nextOccurrenceId
         ? String(todo.nextOccurrenceId)
         : null,
@@ -109,6 +111,7 @@ export function createTodoService(deps: {
         priority: (input.priority ?? "medium") as "low" | "medium" | "high",
         schedule: (input.schedule ?? "none") as never,
         customIntervalDays: input.customIntervalDays ?? null,
+        monthlyRepeatMode: input.monthlyRepeatMode ?? null,
         createdBy: input.createdBy,
       });
       for (const depId of input.dependencyIds ?? []) {
@@ -138,6 +141,25 @@ export function createTodoService(deps: {
               : "Invalid status transition",
           );
         }
+
+        // Edge Case Demo 5 fix: prevent reversing a completed prerequisite
+        // when a dependent task has already advanced beyond "Not Started".
+        // Reversing would re-evaluate the dependent's computed "Blocked" flag
+        // and silently invalidate an active/terminal state (e.g. a task that
+        // is simultaneously Completed and Blocked). The dependent must be moved
+        // back to "Not Started" first. This is a cross-task domain guard, so it
+        // lives here rather than in the pure single-task state machine.
+        if (todo.status === "completed" && patch.status !== "completed") {
+          const hasActiveDependent =
+            await todoRepo.hasDependentBeyondNotStarted(id);
+          if (hasActiveDependent) {
+            badRequest(
+              "Cannot change this task's status: it is a completed dependency of " +
+                "tasks that have already started. Move those dependent tasks back " +
+                "to 'Not Started' first.",
+            );
+          }
+        }
       }
 
       const updates: Record<string, unknown> = {};
@@ -152,6 +174,8 @@ export function createTodoService(deps: {
       if (patch.schedule !== undefined) updates.schedule = patch.schedule;
       if (patch.customIntervalDays !== undefined)
         updates.customIntervalDays = patch.customIntervalDays;
+      if (patch.monthlyRepeatMode !== undefined)
+        updates.monthlyRepeatMode = patch.monthlyRepeatMode;
 
       // Recurrence orchestration on transition to completed
       if (patch.status === "completed" && todo.status !== "completed") {
@@ -182,6 +206,7 @@ export function createTodoService(deps: {
                   todo.customIntervalDays,
                   todo.dueDate,
                   now,
+                  todo.monthlyRepeatMode,
                 )
               : null;
             const clone = await todoRepo.insert({
@@ -192,6 +217,7 @@ export function createTodoService(deps: {
               priority: todo.priority,
               schedule: todo.schedule,
               customIntervalDays: todo.customIntervalDays,
+              monthlyRepeatMode: todo.monthlyRepeatMode,
               createdBy: todo.createdBy,
             });
             updates.nextOccurrenceId = clone.id;

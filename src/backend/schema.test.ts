@@ -23,6 +23,7 @@ describe("schema", () => {
       "priority",
       "schedule",
       "custom_interval_days",
+      "monthly_repeat_mode",
       "next_occurrence_id",
       "created_by",
       "created_at",
