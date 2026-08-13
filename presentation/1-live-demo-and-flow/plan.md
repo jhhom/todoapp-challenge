@@ -16,8 +16,23 @@ To demonstrate ownership of the application by guiding the audience through a st
 - **Action:** Create Task A and Task B. Link Task B to depend on Task A.
 - **Edge Case Demo 1 (Blocked Status):** Attempt to move Task B directly to "In Progress" or "Completed". Show that the system strictly prevents this.
 - **Edge Case Demo 2 (Cycle Prevention):** Attempt to make Task A depend on Task B (creating a circular dependency). 
+- **Edge Case Demo 3**: User is able to reverse a "Completed" task back to "In Progress" or "Not Started".
+- **Edge Case Demo 4**: User is able to edit the "Due Date". But if the user moves the "Completed" task to "In Progress", a new recurring task is not generated based on the edited "Due Date"
+- **Edge Case Demo 5 (Residual Blocked State After Dependency Reversal):** Reusing Task A / Task B (Task B depends on Task A). With both "Completed", reverse Task A back to "Not Started" — Task B stays "Completed" but now shows a "Blocked" badge.
+  - "Blocked" is a *computed* state (a live check for any non-completed prerequisite), not a stored flag, so reversing a prerequisite re-evaluates the block *without* re-validating the dependent's own status.
+  - **Key Points — a dependent task becomes Blocked when one of its prerequisites is reversed (Completed → In Progress / Not Started / Archived), regardless of the dependent's own status:**
+    - A **Completed** task can become Blocked.
+    - An **In Progress** task can become Blocked.
+    - An **Archived** task can become Blocked.
+  - **Impact:** Task B is simultaneously "Completed" and "Blocked" — a contradictory UI state — and cannot move forward to "In Progress" or "Completed" again until the prerequisite is re-completed. The dependency graph can invalidate a terminal/active state that was legitimately entered.
+  - **Self-Correction:** The state machine guards *transitions into* "Completed"/"In Progress", but does not cascade-revalidate dependents when a prerequisite is reversed. A fix would be to reject the reversal when it would invalidate a dependent's state, or to cascade the dependent back to a consistent status.
 - **Talking Point:** Explain that the backend actively blocks this cycle using a Depth-First Search (DFS) algorithm.
-- **Self-Correction:** Acknowledge that the UI currently allows selecting an invalid dependency in the dropdown before throwing an error on submit. Explain this was a deliberate trade-off to maintain performance at scale (avoiding costly cycle checks on 10,000+ items during dropdown render), and mention how it could be improved proactively in the future.
+
+
+**Self-Correction:** 
+
+1. Acknowledge that the UI currently allows selecting an invalid dependency in the dropdown before throwing an error on submit. Explain this was a deliberate trade-off to maintain performance at scale (avoiding costly cycle checks on 10,000+ items during dropdown render), and mention how it could be improved proactively in the future.
+2. Some of the table column names use PostgreSQL reserved such as `todo.name`, `todo.status`, `todo.description`, which is not a best practice best these keywords may be used for PostgreSQL syntax in the future. Better suggestions are `todo.title`, `todo.todo_status` or `todo.completion_status`, `todo.todo_description`. or `todo.task_description`.
 
 ## Segment 3: Recurring Tasks & System Resilience (5 Minutes)
 **Focus:** Demonstrating complex domain logic and self-healing mechanisms.

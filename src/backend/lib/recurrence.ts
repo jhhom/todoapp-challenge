@@ -16,8 +16,25 @@ function advanceOne(
     case "weekly":
       return new Date(from.getTime() + 7 * DAY_MS);
     case "monthly": {
+      // Preserve "end of month" intent. setUTCMonth(+1) alone overflows
+      // month-end anchors (Jan 31 -> Feb 31 -> Mar 3), skipping short months
+      // and drifting to a random day. If `from` is the last day of its month,
+      // land on the last day of the target month; otherwise keep the
+      // day-of-month, clamped to the target month's length.
+      const day = from.getUTCDate();
+      const lastDayOfFrom = new Date(
+        Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + 1, 0),
+      ).getUTCDate();
+      const isEndOfMonth = day === lastDayOfFrom;
       const next = new Date(from);
+      next.setUTCDate(1); // neutralize overflow before shifting the month
       next.setUTCMonth(next.getUTCMonth() + 1);
+      const lastDayOfTarget = new Date(
+        Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0),
+      ).getUTCDate();
+      next.setUTCDate(
+        isEndOfMonth ? lastDayOfTarget : Math.min(day, lastDayOfTarget),
+      );
       return next;
     }
     case "custom": {

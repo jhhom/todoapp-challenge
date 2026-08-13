@@ -97,7 +97,7 @@ Do not try to write code to solve this edge case for the assignment. Automatical
 
 This can be something we can consider in **"What we would do differently with more time."**
 
-> **Known Limitation: Frequency Mismatches in Recurring Dependencies**
+> **(❌ Outdated Decision) Known Limitation: Frequency Mismatches in Recurring Dependencies**
 > 
 > **Current Behavior:** When a recurring task spawns its next occurrence, it automatically links to the *future* occurrence of any recurring dependencies (using `next_occurrence_id`).
 > 
