@@ -4,6 +4,7 @@ export type FilterState = {
   status?: string;
   priority?: string;
   blocked?: string;
+  dueFilter?: string;
   sortBy?: string;
   sortOrder: "asc" | "desc";
 };
@@ -27,6 +28,14 @@ const BLOCKED_OPTIONS: SelectOption[] = [
   { value: "", label: "Blocked: any" },
   { value: "blocked", label: "Blocked only" },
   { value: "unblocked", label: "Unblocked only" },
+];
+
+const DUE_FILTER_OPTIONS: SelectOption[] = [
+  { value: "", label: "All due dates" },
+  { value: "overdue", label: "Overdue" },
+  { value: "today", label: "Due today" },
+  { value: "this_week", label: "Due this week" },
+  { value: "this_month", label: "Due this month" },
 ];
 
 const SORT_BY_OPTIONS: SelectOption[] = [
@@ -69,6 +78,12 @@ export function TodoFilters({
         value={value.blocked ?? ""}
         onChange={(v) => onChange({ ...value, blocked: empty(v) })}
         options={BLOCKED_OPTIONS}
+        triggerClassName="w-[150px]"
+      />
+      <AppSelect
+        value={value.dueFilter ?? ""}
+        onChange={(v) => onChange({ ...value, dueFilter: empty(v) })}
+        options={DUE_FILTER_OPTIONS}
         triggerClassName="w-[150px]"
       />
       <AppSelect

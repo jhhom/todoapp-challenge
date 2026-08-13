@@ -3,7 +3,14 @@ import {
   useNavigate,
   useSearch,
 } from "@tanstack/react-router";
-import { format, isToday } from "date-fns";
+import {
+  format,
+  isToday,
+  startOfDay,
+  endOfDay,
+  endOfWeek,
+  endOfMonth,
+} from "date-fns";
 import { useMemo } from "react";
 import { useTodoChanges, useTodoList } from "../hooks/todos";
 import { TodoFilters, type FilterState } from "../components/TodoFilters";
@@ -27,10 +34,45 @@ export type WorkspaceSearch = {
   status?: string;
   priority?: string;
   blocked?: string;
+  dueFilter?: string;
   sortBy?: string;
   sortOrder: "asc" | "desc";
   todo?: string;
 };
+
+/**
+ * Translate a due-date preset into the concrete `dueBefore` / `dueAfter`
+ * datetime bounds the backend expects. Dates are computed in the browser's
+ * local timezone (the user's notion of "today"), then serialized to ISO 8601
+ * UTC — matching how due dates are stored and compared server-side.
+ */
+function dueDateRange(preset: string | undefined): {
+  dueBefore?: string;
+  dueAfter?: string;
+} {
+  const now = new Date();
+  switch (preset) {
+    case "overdue":
+      return { dueBefore: now.toISOString() };
+    case "today":
+      return {
+        dueAfter: startOfDay(now).toISOString(),
+        dueBefore: endOfDay(now).toISOString(),
+      };
+    case "this_week":
+      return {
+        dueAfter: startOfDay(now).toISOString(),
+        dueBefore: endOfWeek(now).toISOString(),
+      };
+    case "this_month":
+      return {
+        dueAfter: startOfDay(now).toISOString(),
+        dueBefore: endOfMonth(now).toISOString(),
+      };
+    default:
+      return {};
+  }
+}
 
 export const Route = createFileRoute("/")({
   component: Workspace,
@@ -39,6 +81,7 @@ export const Route = createFileRoute("/")({
     status: (search.status as string) || undefined,
     priority: (search.priority as string) || undefined,
     blocked: (search.blocked as string) || undefined,
+    dueFilter: (search.dueFilter as string) || undefined,
     sortBy: (search.sortBy as string) || "createdAt",
     sortOrder: (search.sortOrder as "asc" | "desc") || "desc",
     // Which task's detail drawer is open — kept in the URL so it survives
@@ -68,6 +111,7 @@ export default function Workspace() {
       status: search.status,
       priority: search.priority,
       blocked: search.blocked,
+      ...dueDateRange(search.dueFilter),
       sortBy: search.sortBy,
       sortOrder: search.sortOrder,
     }),
@@ -76,6 +120,7 @@ export default function Workspace() {
       search.status,
       search.priority,
       search.blocked,
+      search.dueFilter,
       search.sortBy,
       search.sortOrder,
     ],
@@ -113,6 +158,7 @@ export default function Workspace() {
           status: search.status,
           priority: search.priority,
           blocked: search.blocked,
+          dueFilter: search.dueFilter,
           sortBy: search.sortBy,
           sortOrder: search.sortOrder ?? "desc",
         }}
