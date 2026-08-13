@@ -1,0 +1,160 @@
+@startuml architecture
+' ============================================================================
+'  Sleekflow Todo — Application Architecture
+'  Source of truth: src/ (web / shared / backend) — see inline file refs below.
+' ============================================================================
+
+title Sleekflow Todo — Application Architecture
+
+skinparam shadowing false
+skinparam roundCorner 10
+skinparam ArrowColor #37474F
+skinparam ArrowFontColor #37474F
+skinparam packageBackgroundColor #FAFAFA
+skinparam packageBorderColor #90A4AE
+skinparam nodeBackgroundColor #F1F8E9
+skinparam nodeBorderColor #2E7D32
+
+skinparam component<<web>> {
+  BackgroundColor #E3F2FD
+  BorderColor      #1565C0
+}
+skinparam component<<server>> {
+  BackgroundColor #E8F5E9
+  BorderColor      #2E7D32
+}
+skinparam component<<shared>> {
+  BackgroundColor #FFF3E0
+  BorderColor      #EF6C00
+}
+skinparam component<<lib>> {
+  BackgroundColor #F3E5F5
+  BorderColor      #6A1B9A
+}
+skinparam database {
+  BackgroundColor #ECEFF1
+  BorderColor     #455A64
+}
+skinparam storage {
+  BackgroundColor #FFFDE7
+  BorderColor     #F9A825
+}
+
+' ===========================================================================
+' CLIENT — React 19 SPA in the browser
+' ===========================================================================
+package "Browser  (React 19 SPA  —  src/web)" <<web>> {
+  component "Pages & Routes\n(TanStack Router)" as UI <<web>>
+  component "React Query Hooks\nuseTodoList / mutations / useTodoChanges" as Hooks <<web>>
+  component "oRPC Client\n(RPCLink → /rpc)" as ORPCClient <<web>>
+  storage "localStorage\n(JWT bearer token)" as TokenStore <<web>>
+}
+
+' ===========================================================================
+' SHARED CONTRACT — single source of truth for end-to-end type safety
+' ===========================================================================
+package "Shared Contract  (src/shared)" <<shared>> {
+  component "api.ts\noRPC route metadata\n+ Zod input/output schemas" as Contract <<shared>>
+}
+
+' ===========================================================================
+' SERVER — Node.js / Express, port 5170
+' ===========================================================================
+node "Node.js / Express   :5170  (src/backend)" <<server>> {
+
+  package "HTTP Transport" <<server>> {
+    component "/rpc\n(RPCHandler — oRPC RPC)" as RPC <<server>>
+    component "/api\n(OpenAPIHandler — REST / SSE)" as REST <<server>>
+    component "/openapi.json\n(OpenAPI 3.1.1 spec)" as Spec <<server>>
+  }
+
+  component "oRPC Router\nprocedures.ts" as Router <<server>>
+  component "requireAuth middleware\n(Bearer JWT verify · jose)" as AuthMW <<server>>
+
+  package "Domain Services + Repositories" <<server>> {
+    component "Todo Service\nCRUD · recurrence · status FSM" as TodoSvc <<server>>
+    component "Dependency Service\ncycle detection · isBlocked" as DepSvc <<server>>
+    component "Auth Service\nregister / login · bcrypt" as AuthSvc <<server>>
+    component "Repositories\ntodo / dependency / user\n(Kysely + pg Pool)" as Repos <<server>>
+  }
+
+  component "EventPublisher\nin-process pub/sub" as PubSub <<server>>
+
+  package "lib — pure functions" <<lib>> {
+    component "state-machine" as FSM <<lib>>
+    component "recurrence" as Recur <<lib>>
+    component "cycle-detection" as Cycle <<lib>>
+    component "jwt" as JwtLib <<lib>>
+  }
+}
+
+' ===========================================================================
+' DATABASE
+' ===========================================================================
+database "PostgreSQL" as DB {
+  component "app_user" as TUser
+  component "todo" as TTodo
+  component "todo_dependency" as TDep
+}
+
+actor "Third-party client\ncurl · Postman · generated SDK" as ExtClient
+
+' ----------------------------- client wiring -------------------------------
+UI --> Hooks
+Hooks --> ORPCClient : type-safe call
+
+' ----------------------------- shared contract -----------------------------
+ORPCClient ..> Contract : typed by  (ContractRouterClient)
+Router ..> Contract : implements  (implement(apiContract))
+
+' ----------------------------- external / transport ------------------------
+ORPCClient --> RPC : RPC over fetch\n(SSE for todo.changed)
+ExtClient --> REST : REST / SSE
+Spec <.. Router : generated from\n(openapi.ts)
+ORPCClient ..> TokenStore : reads Bearer token
+
+' ----------------------------- server wiring -------------------------------
+RPC --> Router
+REST --> Router
+Router --> AuthMW : use(requireAuth)\non every /todos/**\n(injects user ctx)
+
+Router --> TodoSvc
+Router --> DepSvc
+Router --> AuthSvc
+Router ..> PubSub : todo.changed procedure\nsubscribes (SSE source)
+
+TodoSvc --> DepSvc : delegates edge ops
+TodoSvc ..> PubSub : publish todo:changed
+DepSvc ..> PubSub : publish todo:changed
+
+TodoSvc --> Repos
+DepSvc --> Repos
+AuthSvc --> Repos
+Repos --> DB : SQL over pg Pool
+
+' ----------------------------- domain logic --------------------------------
+TodoSvc --> FSM
+TodoSvc --> Recur
+DepSvc --> Cycle
+AuthMW --> JwtLib : verifyToken
+AuthSvc --> JwtLib : signs JWT
+
+' ----------------------------- real-time fan-out ---------------------------
+PubSub ..> Router : emits events\n(streamed as SSE)
+Router ..> ORPCClient : SSE stream\ntodo.changed
+
+note bottom of PubSub
+  <b>Real-time flow:</b>  every todo / dependency mutation publishes a
+  <b>todo:changed</b> event. The <b>todo.changed</b> procedure subscribes
+  to it and streams events to the browser over SSE; the React Query hooks
+  then invalidate the affected **list** (always) and **detail** (when the
+  open todo or one of its dependencies changed) queries — no polling.
+end note
+
+note bottom of Contract
+  <b>End-to-end type safety:</b>  one contract is implemented by the server
+  and consumed by the client. Inputs and outputs are Zod-validated on both
+  sides; the same schemas also drive the generated OpenAPI document.
+end note
+
+@enduml

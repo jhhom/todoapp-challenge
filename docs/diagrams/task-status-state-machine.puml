@@ -1,0 +1,68 @@
+@startuml task-status-state-machine
+!pragma teoz true
+
+title Task Status State Machine
+
+skinparam state {
+  BackgroundColor<<initial>> White
+  FontColor Black
+}
+skinparam note {
+  BackgroundColor #FFF6BF
+  BorderColor #D6B656
+}
+
+' A new task begins life as "not_started".
+[*] --> not_started
+
+state "not_started" as not_started
+state "in_progress" as in_progress
+state "completed" as completed
+state "archived" as archived
+
+' ---------------------------------------------------------------------------
+' Transition table derived from canTransition() in src/backend/lib/state-machine.ts
+'
+' Rules:
+'   1. current === target       -> always false (no self-transitions)
+'   2. isBlocked && target in   -> always false
+'      (BLOCKED_TARGETS = in_progress, completed)
+'
+' Guards below encode rule 2: any edge INTO in_progress or completed only
+' fires when the task is NOT blocked. Edges into not_started / archived
+' are unconditional.
+' ---------------------------------------------------------------------------
+
+' --- from not_started ---
+not_started --> in_progress : [!isBlocked]
+not_started --> completed   : [!isBlocked]
+not_started --> archived
+
+' --- from in_progress ---
+in_progress --> not_started
+in_progress --> completed   : [!isBlocked]
+in_progress --> archived
+
+' --- from completed ---
+completed --> not_started
+completed --> in_progress   : [!isBlocked]
+completed --> archived
+
+' --- from archived ---
+archived --> not_started
+archived --> in_progress    : [!isBlocked]
+archived --> completed      : [!isBlocked]
+
+note right of not_started
+  <b>Block rule</b>
+  When isBlocked is true, a task
+  cannot move to <b>in_progress</b>
+  or <b>completed</b>.
+
+  It may still move to <b>archived</b>
+  (or be soft-deleted) regardless of block.
+
+  Self-transitions are never allowed.
+end note
+
+@enduml

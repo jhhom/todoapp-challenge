@@ -1,0 +1,147 @@
+@startuml todo-update-sequence
+' ============================================================================
+'  Sequence diagram for TodoService.update()
+'  Source: src/backend/domain/todos/todo.service.ts  (async update(id, patch))
+'
+'  Conventions
+'    ->   request / call
+'    -->  return value
+'    ->x  thrown error (aborts the request; nothing after it runs)
+'    opt  guard that only runs when its condition holds
+' ============================================================================
+
+title TodoService.update(id, patch) — update flow
+
+skinparam shadowing false
+skinparam roundCorner 8
+skinparam ArrowColor #37474F
+skinparam ParticipantBackgroundColor #E8F5E9
+skinparam ParticipantBorderColor #2E7D32
+skinparam LifeLineBorderColor #2E7D32
+skinparam SequenceGroupBorderColor #EF6C00
+skinparam SequenceGroupBackgroundColor #FFF8E1
+skinparam NoteBorderColor #D6B656
+skinparam NoteBackgroundColor #FFF6BF
+
+autonumber
+
+participant "Caller\n(oRPC handler)" as Caller
+participant "TodoService" as Svc
+participant "state-machine" as FSM #F3E5F5
+participant "recurrence" as Recur #F3E5F5
+participant "DependencyService" as Dep
+participant "TodoRepo\n(Kysely)" as Repo
+participant "UserRepo" as URepo
+participant "EventPublisher\n(SSE)" as Pub
+
+Caller -> Svc: update(id, patch)
+
+' ---------- load -------------------------------------------------------------
+Svc -> Repo: findById(id)
+Repo --> Svc: todo
+opt todo missing  OR  todo.isDeleted
+  Svc ->x Caller: notFound("Todo not found")
+end
+
+' ---------- status transition validation ------------------------------------
+group Status transition validation  (only when patch.status changes)
+
+  Svc -> Repo: isBlocked(id)
+  Repo --> Svc: isBlocked
+
+  Svc -> FSM: canTransition(todo.status, patch.status, isBlocked)
+  FSM --> Svc: boolean
+  opt invalid transition  (blocked OR illegal)
+    Svc ->x Caller: badRequest("...blocked... / ...invalid transition...")
+  end
+
+  opt todo.status == "completed"  AND  patch.status != "completed"
+    Svc -> Repo: hasDependentBeyondNotStarted(id)
+    Repo --> Svc: boolean
+    opt an active dependent exists
+      Svc ->x Caller: badRequest("...move dependents to 'Not Started' first...")
+    end
+  end
+
+end
+
+' ---------- build updates ---------------------------------------------------
+note over Svc
+  Build <b>updates</b> from <b>patch</b>:
+  name, description, dueDate (null aware),
+  priority, schedule, customIntervalDays, monthlyRepeatMode
+end note
+
+' ---------- recurrence orchestration ---------------------------------------
+group Recurrence orchestration  (transition INTO completed)
+
+  opt patch.status == "completed"  AND  todo.status != "completed"
+    Svc -> Svc: updates.completedAt = now
+
+    opt todo.schedule != "none"  (recurring)
+
+      opt todo.nextOccurrenceId set
+        Svc -> Repo: findById(todo.nextOccurrenceId)
+        Repo --> Svc: existing
+      end
+      note over Svc
+        occurrenceLive = existing && !existing.isDeleted
+        (a soft-deleted / missing slot is treated as empty,
+         so completion regenerates a fresh occurrence)
+      end
+
+      opt NOT occurrenceLive  (no live next occurrence)
+
+        opt todo.dueDate set
+          Svc -> Recur: computeNextDueDate(schedule, customIntervalDays, dueDate, now, monthlyRepeatMode)
+          Recur --> Svc: nextDue
+        end
+
+        Svc -> Repo: insert(clone of todo, dueDate = nextDue, status = "not_started")
+        Repo --> Svc: clone
+        Svc -> Pub: publish { action: "created", todoId: clone.id }
+
+        Svc -> Repo: dependenciesOf(id)
+        Repo --> Svc: depIds
+        loop for each depId  (copy only RECURRING deps)
+          Svc -> Repo: findById(depId)
+          Repo --> Svc: dep
+          opt dep.schedule != "none"
+            Svc -> Dep: add(clone.id, depId)
+          end
+        end
+
+        Svc -> Svc: updates.nextOccurrenceId = clone.id
+
+      end
+
+    end
+  end
+
+end
+
+note over Svc
+  if patch.status provided:  updates.status = patch.status
+  (Reversal completed->in_progress keeps nextOccurrenceId so
+   re-completion cannot spawn a duplicate.)
+end note
+
+' ---------- persist ---------------------------------------------------------
+Svc -> Repo: update(id, updates)
+Repo --> Svc: updated
+
+Svc -> Pub: publish { action: "updated", todoId: updated.id }
+
+' ---------- enrich to DTO ---------------------------------------------------
+group toDto(updated)  (enrich row into response DTO)
+  Svc -> URepo: findById(todo.createdBy)
+  URepo --> Svc: creator
+  Svc -> Repo: isBlocked(id)
+  Repo --> Svc: isBlocked
+  Svc -> Repo: dependenciesOf(id)
+  Repo --> Svc: deps
+end
+
+Svc --> Caller: todoDto
+
+@enduml
